@@ -1,0 +1,5 @@
+patient_id,age,gender,sensor_reading,predicted_status,timestamp
+1,30,Female,185,Normal,2026-08-21 15:17:31
+2,54,Male,85,Mild Risk,2026-08-21 15:17:31
+3,5,Child,42,High Risk,2026-08-21 15:17:31
+4,2,Male,60,High Risk,2026-08-21 15:27:35
