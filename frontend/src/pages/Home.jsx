@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, Cpu, ArrowRight, PlayCircle, ShieldCheck, Database, Zap, Layers } from 'lucide-react';
+import { Activity, Cpu, ArrowRight, PlayCircle, ShieldCheck, Database, Zap, Layers, AlertTriangle } from 'lucide-react';
 
 const Home = () => {
   return (
@@ -12,53 +12,79 @@ const Home = () => {
           <div className="row align-items-center gy-5">
             <div className="col-lg-7">
               <span className="badge bg-teal-100 text-teal-800 py-2 px-3 rounded-pill fw-semibold mb-3 d-inline-flex align-items-center gap-2" style={{ backgroundColor: '#ccfbf1', color: '#0f766e' }}>
-                <Zap size={16} /> Design Thinking Optical Screening System
+                <Cpu size={16} /> ESP32 & AS7262 Spectral Screening Node
               </span>
               <h1 className="display-4 fw-extrabold text-slate-900 mb-3" style={{ letterSpacing: '-0.02em' }}>
-                Smart Jaundice Screening System Using <span style={{ color: '#0d9488' }}>Optical Sensor Readings</span>
+                Low-Cost Neonatal Jaundice Screening Using <span style={{ color: '#0d9488' }}>AS7262 Spectral Sensor</span>
               </h1>
               <p className="lead text-muted mb-4 pe-lg-4" style={{ fontSize: '1.2rem' }}>
-                A low-cost, non-invasive optical screening framework that detects bilirubin accumulation using light absorption principles. Designed for future hardware deployment with ESP32 microcontrollers and machine learning model training.
+                A multi-spectral optical prototype measuring 6 discrete visible wavelengths (450nm - 650nm) to assess neonatal bilirubin attenuation. Engineered with ESP32 microcontroller firmware and an open REST backend.
               </p>
+
+              <div className="alert alert-warning py-3 px-3 rounded-3 border-0 mb-4 small d-flex align-items-start gap-2">
+                <AlertTriangle size={20} className="text-warning flex-shrink-0 mt-1" />
+                <div>
+                  <strong>Research Prototype Notice:</strong> This device is an experimental prototype, not a clinically approved diagnostic medical device. Uncalibrated spectral readings must not be used to diagnose jaundice without clinical laboratory calibration against Serum Total Bilirubin (STB).
+                </div>
+              </div>
+
               <div className="d-flex flex-wrap gap-3">
                 <Link to="/screening" className="btn btn-medical btn-lg d-flex align-items-center gap-2 px-4 shadow">
-                  <PlayCircle size={22} /> Start Screening <ArrowRight size={20} />
+                  <PlayCircle size={22} /> Start Spectral Screening <ArrowRight size={20} />
                 </Link>
-                <Link to="/dashboard" className="btn btn-outline-medical btn-lg d-flex align-items-center gap-2 px-4">
-                  View Dashboard Analytics
+                <Link to="/hardware-guide" className="btn btn-outline-medical btn-lg d-flex align-items-center gap-2 px-4">
+                  ESP32 & AS7262 Guide
                 </Link>
               </div>
             </div>
 
             <div className="col-lg-5 text-center">
-              <div className="medical-card p-4 mx-auto text-center position-relative shadow-lg" style={{ maxWidth: '420px' }}>
+              <div className="medical-card p-4 mx-auto text-center position-relative shadow-lg" style={{ maxWidth: '440px' }}>
                 <div className="p-4 bg-teal-50 rounded-3 border mb-3" style={{ backgroundColor: '#f0fdf4' }}>
                   <div className="d-flex justify-content-center mb-3">
                     <div className="p-3 bg-white rounded-circle shadow-sm">
-                      <Activity size={56} style={{ color: '#0d9488' }} />
+                      <Activity size={48} style={{ color: '#0d9488' }} />
                     </div>
                   </div>
-                  <h5 className="fw-bold text-dark mb-1">Optical Transmittance Spectrum</h5>
-                  <p className="extra-small text-muted mb-0">Simulated Hardware Range (0 - 255)</p>
+                  <h5 className="fw-bold text-dark mb-1">AS7262 Visible Spectrum</h5>
+                  <p className="extra-small text-muted mb-0">6 Calibrated Optical Bands (450nm - 650nm)</p>
                 </div>
 
                 <div className="row g-2 text-start small">
-                  <div className="col-4">
-                    <div className="p-2 bg-success bg-opacity-10 border border-success rounded text-success text-center">
-                      <div className="fw-bold">100 - 255</div>
-                      <div className="extra-small">Normal</div>
+                  <div className="col-6">
+                    <div className="p-2 border rounded text-center" style={{ background: '#ede9fe', borderColor: '#ddd6fe' }}>
+                      <strong className="d-block" style={{ color: '#6d28d9' }}>450nm Violet</strong>
+                      <span className="extra-small text-muted">Bilirubin absorption</span>
                     </div>
                   </div>
-                  <div className="col-4">
-                    <div className="p-2 bg-warning bg-opacity-10 border border-warning rounded text-warning text-center">
-                      <div className="fw-bold">70 - 99</div>
-                      <div className="extra-small">Mild Risk</div>
+                  <div className="col-6">
+                    <div className="p-2 border rounded text-center" style={{ background: '#dbeafe', borderColor: '#bfdbfe' }}>
+                      <strong className="d-block" style={{ color: '#1d4ed8' }}>500nm Blue</strong>
+                      <span className="extra-small text-muted">Absorption slope</span>
                     </div>
                   </div>
-                  <div className="col-4">
-                    <div className="p-2 bg-danger bg-opacity-10 border border-danger rounded text-danger text-center">
-                      <div className="fw-bold">0 - 69</div>
-                      <div className="extra-small">High Risk</div>
+                  <div className="col-6">
+                    <div className="p-2 border rounded text-center" style={{ background: '#dcfce7', borderColor: '#bbf7d0' }}>
+                      <strong className="d-block" style={{ color: '#15803d' }}>550nm Green</strong>
+                      <span className="extra-small text-muted">Hb reference band</span>
+                    </div>
+                  </div>
+                  <div className="col-6">
+                    <div className="p-2 border rounded text-center" style={{ background: '#fef9c3', borderColor: '#fef08a' }}>
+                      <strong className="d-block" style={{ color: '#a16207' }}>570nm Yellow</strong>
+                      <span className="extra-small text-muted">Tissue reference</span>
+                    </div>
+                  </div>
+                  <div className="col-6">
+                    <div className="p-2 border rounded text-center" style={{ background: '#ffedd5', borderColor: '#fed7aa' }}>
+                      <strong className="d-block" style={{ color: '#c2410c' }}>600nm Orange</strong>
+                      <span className="extra-small text-muted">Tissue reference</span>
+                    </div>
+                  </div>
+                  <div className="col-6">
+                    <div className="p-2 border rounded text-center" style={{ background: '#fee2e2', borderColor: '#fecaca' }}>
+                      <strong className="d-block" style={{ color: '#b91c1c' }}>650nm Red</strong>
+                      <span className="extra-small text-muted">Skin baseline</span>
                     </div>
                   </div>
                 </div>
@@ -68,60 +94,52 @@ const Home = () => {
         </div>
       </section>
 
-      {/* How System Works */}
+      {/* 4 Pillars Section */}
       <section className="py-5 bg-white">
-        <div className="container py-4">
+        <div className="container">
           <div className="text-center max-w-2xl mx-auto mb-5">
-            <h2 className="fw-extrabold text-slate-900 mb-2">How the Optical Screening System Works</h2>
-            <p className="text-muted">Multi-stage architecture bridging physical optical sensors, rule-based MVP, and future AI training.</p>
+            <h2 className="fw-extrabold text-slate-900 mb-2">How Spectral Bilirubin Screening Works</h2>
+            <p className="text-muted">4-Step Data Pipeline connecting the AS7262 Sensor to Cloud AI</p>
           </div>
 
           <div className="row g-4">
             <div className="col-md-3">
-              <div className="medical-card p-4 h-100 border-0 shadow-sm text-center">
-                <div className="p-3 rounded-circle bg-teal-100 text-teal-800 d-inline-flex mb-3" style={{ backgroundColor: '#ccfbf1', color: '#0f766e' }}>
-                  <Zap size={28} />
+              <div className="medical-card p-4 h-100 text-center">
+                <div className="p-3 rounded-circle bg-teal-50 text-teal-700 d-inline-flex mb-3" style={{ color: '#0d9488' }}>
+                  <Zap size={24} />
                 </div>
-                <h5 className="fw-bold mb-2">1. LED Light Source</h5>
-                <p className="text-muted extra-small mb-0">
-                  Calibrated LED emits light through tissue/finger. Bilirubin absorbs specific wavelengths (450-460nm).
-                </p>
+                <h5 className="fw-bold mb-2">1. LED Illumination</h5>
+                <p className="text-muted small mb-0">AS7262 onboard white LED illuminates cutaneous tissue safely.</p>
               </div>
             </div>
 
             <div className="col-md-3">
-              <div className="medical-card p-4 h-100 border-0 shadow-sm text-center">
-                <div className="p-3 rounded-circle bg-cyan-100 text-cyan-800 d-inline-flex mb-3" style={{ backgroundColor: '#e0f2fe', color: '#0369a1' }}>
-                  <Activity size={28} />
+              <div className="medical-card p-4 h-100 text-center">
+                <div className="p-3 rounded-circle bg-emerald-50 text-emerald-700 d-inline-flex mb-3" style={{ color: '#059669' }}>
+                  <Cpu size={24} />
                 </div>
-                <h5 className="fw-bold mb-2">2. Optical Sensor</h5>
-                <p className="text-muted extra-small mb-0">
-                  Color sensor (TCS34725/LDR) measures transmitted light intensity and converts to digital reading (0-255).
-                </p>
+                <h5 className="fw-bold mb-2">2. AS7262 Sensor</h5>
+                <p className="text-muted small mb-0">Optical interference filters capture 6 calibrated visible bands (450nm-650nm).</p>
               </div>
             </div>
 
             <div className="col-md-3">
-              <div className="medical-card p-4 h-100 border-0 shadow-sm text-center">
-                <div className="p-3 rounded-circle bg-amber-100 text-amber-800 d-inline-flex mb-3" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
-                  <Layers size={28} />
+              <div className="medical-card p-4 h-100 text-center">
+                <div className="p-3 rounded-circle bg-amber-50 text-amber-700 d-inline-flex mb-3" style={{ color: '#d97706' }}>
+                  <Database size={24} />
                 </div>
-                <h5 className="fw-bold mb-2">3. Flask REST API</h5>
-                <p className="text-muted extra-small mb-0">
-                  Backend applies configurable thresholds to classify risk (Normal, Mild, High) and logs data to database.
-                </p>
+                <h5 className="fw-bold mb-2">3. ESP32 Wi-Fi Node</h5>
+                <p className="text-muted small mb-0">Microcontroller reads I²C registers (SDA=21, SCL=22) and posts JSON to backend.</p>
               </div>
             </div>
 
             <div className="col-md-3">
-              <div className="medical-card p-4 h-100 border-0 shadow-sm text-center">
-                <div className="p-3 rounded-circle bg-emerald-100 text-emerald-800 d-inline-flex mb-3" style={{ backgroundColor: '#d1fae5', color: '#065f46' }}>
-                  <Database size={28} />
+              <div className="medical-card p-4 h-100 text-center">
+                <div className="p-3 rounded-circle bg-indigo-50 text-indigo-700 d-inline-flex mb-3" style={{ color: '#4f46e5' }}>
+                  <Layers size={24} />
                 </div>
-                <h5 className="fw-bold mb-2">4. AI Dataset Collection</h5>
-                <p className="text-muted extra-small mb-0">
-                  All readings form a structured CSV dataset for future machine learning classifier model training.
-                </p>
+                <h5 className="fw-bold mb-2">4. Dataset & Calibration</h5>
+                <p className="text-muted small mb-0">Builds spectral dataset for future clinical calibration against blood STB.</p>
               </div>
             </div>
           </div>

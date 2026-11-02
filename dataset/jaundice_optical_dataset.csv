@@ -1,6 +1,21 @@
-patient_id,age,gender,sensor_reading,predicted_status,timestamp
-1,30,Female,185,Normal,2026-08-21 15:17:31
-2,54,Male,85,Mild Risk,2026-08-21 15:17:31
-3,5,Child,42,High Risk,2026-08-21 15:17:31
-4,2,Male,60,High Risk,2026-08-21 15:27:35
-5,1,Child,50,High Risk,2026-08-22 04:28:22
+patient_id,age,gender,sensor_type,violet_450nm,blue_500nm,green_550nm,yellow_570nm,orange_600nm,red_650nm,sensor_reading,predicted_status,confidence_score,timestamp
+1,30,Female,AS7262,,,,,,,185,Normal,94.5,2026-08-21 15:17:31
+2,54,Male,AS7262,,,,,,,85,Mild Risk,82.0,2026-08-21 15:17:31
+3,5,Child,AS7262,,,,,,,42,High Risk,92.5,2026-08-21 15:17:31
+4,2,Male,AS7262,,,,,,,60,High Risk,92.8,2026-08-21 15:27:35
+5,1,Child,AS7262,,,,,,,50,High Risk,93.7,2026-08-22 04:28:22
+6,2,Male,AS7262,12.5,18.2,26.4,21.0,16.5,11.2,0,Calibration Required,0.0,2026-10-11 20:22:33
+7,0,Unspecified,Simulation,,,,,,,140,Normal,92.1,2026-10-11 20:23:05
+8,0,Unspecified,AS7262,15.2,20.1,30.5,25.0,18.2,12.4,0,Calibration Required,0.0,2026-10-11 20:32:46
+9,0,Male,AS7262,45.0,48.0,50.0,49.0,48.0,46.0,0,Calibration Required,0.0,2026-10-15 17:14:48
+13,0,Unspecified,AS7262,6.682144,7.444839,20.10555,15.35946,10.21603,2.634913,0,Calibration Required,0.0,2026-10-16 15:23:42
+14,0,Unspecified,AS7262,105.8006,263.051,655.0175,713.7631,144.8819,41.28031,713,Calibration Required,0.0,2026-10-16 15:48:32
+15,0,Hardware Node,AS7262,14.25,22.8,31.5,27.4,20.1,15.3,0,Calibration Required,0.0,2026-10-21 17:16:45
+16,0,Hardware Node,GY-9960,275.4,324.0,407.0,405.0,404.3333333333333,403.0,0,Calibration Required,0.0,2026-10-25 19:21:22
+17,0,Hardware Node,GY-9960,124.1,146.0,427.0,483.5,502.3333333333333,540.0,0,Calibration Required,0.0,2026-10-25 19:21:24
+18,0,Hardware Node,GY-9960,267.75,315.0,398.0,386.0,382.0,374.0,0,Calibration Required,0.0,2026-10-25 19:21:25
+19,0,Male,AS7262,12.45,18.3,28.4,24.15,19.8,14.2,0,Calibration Required,0.0,2026-10-25 19:22:56
+20,0,Hardware Node,GY-9960,266.9,314.0,360.0,369.0,372.0,378.0,1144,Calibration Required,0.0,2026-10-25 19:51:01
+21,0,Hardware Node,GY-9960,134.29999999999998,158.0,431.0,465.0,476.3333333333333,499.0,1179,Calibration Required,0.0,2026-10-25 19:51:03
+22,0,Hardware Node,GY-9960,271.15,319.0,406.0,393.0,388.6666666666667,380.0,1163,Calibration Required,0.0,2026-10-25 19:51:04
+23,0,Unspecified,GY-9960,212.5,250.0,380.0,395.0,400.0,410.0,1200,Calibration Required,0.0,2026-10-25 19:52:19

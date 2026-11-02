@@ -10,16 +10,44 @@ const api = axios.create({
 });
 
 export const screeningAPI = {
-  // POST /predict or /api/predict
-  predict: async (sensorValue, name = 'Anonymous Patient', age = 0, gender = 'Unspecified') => {
-    const response = await api.post('/predict', {
-      sensor_value: parseInt(sensorValue, 10),
-      name: name.trim() || 'Anonymous Patient',
-      age: parseInt(age, 10) || 0,
-      gender: gender || 'Unspecified',
-    });
+  // POST /predict or /api/predict (Supports AS7262 spectral channels object or legacy sensorValue)
+  predict: async (payload, name = 'Anonymous Patient', age = 0, gender = 'Unspecified') => {
+    let body = {};
+    if (typeof payload === 'object' && payload !== null) {
+      const channels = payload.channels || payload;
+      body = {
+        sensor_type: 'AS7262',
+        channels: {
+          violet: parseFloat(channels.violet || 0),
+          blue: parseFloat(channels.blue || 0),
+          green: parseFloat(channels.green || 0),
+          yellow: parseFloat(channels.yellow || 0),
+          orange: parseFloat(channels.orange || 0),
+          red: parseFloat(channels.red || 0)
+        },
+        violet: parseFloat(channels.violet || 0),
+        blue: parseFloat(channels.blue || 0),
+        green: parseFloat(channels.green || 0),
+        yellow: parseFloat(channels.yellow || 0),
+        orange: parseFloat(channels.orange || 0),
+        red: parseFloat(channels.red || 0),
+        name: (payload.name || name).trim() || 'Anonymous Patient',
+        age: parseInt(payload.age ?? age, 10) || 0,
+        gender: payload.gender || gender || 'Unspecified',
+        sensor_value: payload.sensor_value ?? 0
+      };
+    } else {
+      body = {
+        sensor_value: parseInt(payload, 10),
+        name: name.trim() || 'Anonymous Patient',
+        age: parseInt(age, 10) || 0,
+        gender: gender || 'Unspecified',
+      };
+    }
+    const response = await api.post('/predict', body);
     return response.data;
   },
+
 
   // GET /history or /api/history
   getHistory: async () => {

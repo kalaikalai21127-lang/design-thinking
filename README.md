@@ -1,192 +1,209 @@
-# Smart Jaundice Screening System Using Optical Sensor Readings
+# Low-Cost Neonatal Jaundice Screening Prototype (NodeMCU ESP8266 & GY-9960)
 
-![System Architecture](https://img.shields.io/badge/System-Design_Thinking-teal)
-![Tech Stack](https://img.shields.io/badge/Stack-React_|_Flask_|_SQLite-blue)
-![Hardware](https://img.shields.io/badge/Hardware-ESP32_|_TCS34725-orange)
+![System Architecture](https://img.shields.io/badge/System-Design_Thinking_Prototype-teal)
+![Sensor](https://img.shields.io/badge/Sensor-GY--9960_|_APDS--9960_RGB-purple)
+![Hardware](https://img.shields.io/badge/Microcontroller-NodeMCU_ESP8266-orange)
+![OLED](https://img.shields.io/badge/Display-0.96"_SSD1306_I2C-lightblue)
+![Web Server](https://img.shields.io/badge/Onboard_Dashboard-Port_80_HTTP-green)
+![Backend](https://img.shields.io/badge/Backend-Flask_|_SQLite-blue)
 
-## 📌 Project Vision & Overview
-The **Smart Jaundice Screening System Using Optical Sensor Readings** is a full-stack medical screening platform developed for a Design Thinking initiative. The system uses optical sensor data to measure light transmittance through tissue/finger to assess jaundice risk.
+## 📌 Project Overview
+This project is an experimental **low-cost neonatal jaundice screening prototype** utilizing a **NodeMCU ESP8266 microcontroller**, a **GY-9960 (APDS-9960 compatible) optical colour sensor**, an **SSD1306 0.96" I²C OLED display**, and an **embedded Web Dashboard running on Port 80**.
 
-In this platform:
-1. Optical sensor readings ($$0 - 255$$) are simulated via a responsive medical web interface.
-2. Every screening is stored in a structured database (SQLite / MySQL) to collect an AI dataset.
-3. Configurable rule-based thresholds classify risk into **Normal**, **Mild Risk**, or **High Risk**.
-4. The system is architected for future hardware connection (ESP32) and Machine Learning model transition.
-
----
-
-## 🛠️ Tech Stack
-- **Frontend**: React.js, Bootstrap 5, Lucide Icons, Plus Jakarta Sans font.
-- **Backend**: Python Flask, REST API, Flask-SQLAlchemy, Flask-CORS.
-- **Database**: SQLite (default for MVP; architecture allows seamless migration to MySQL).
-- **Future Hardware**: ESP32 microcontroller, TCS34725/TCS3200 color sensor, LED light source.
-- **Future AI / ML**: Dataset collection (CSV export), scikit-learn Random Forest model training.
+### Photometric Principle of Jaundice Detection:
+Bilirubin exhibits peak optical absorption in the **blue-violet spectrum (~450 - 480 nm)**. As cutaneous bilirubin levels rise:
+- Reflected **Blue light** intensity is significantly attenuated due to absorption.
+- **Red and Green light** are reflected normally by skin tissue.
+- The **Yellow-to-Blue Optical Index** `(Red + Green) / (2 * Blue)` and **R/B Ratio** increase proportionally.
 
 ---
 
-## 📁 Directory Structure
+## ⚠️ Clinical Research & Calibration Disclaimer
+> [!IMPORTANT]
+> **This is an experimental engineering research prototype, NOT a clinically certified medical device.**
+> - Uncalibrated raw optical color readings **cannot and do not diagnose neonatal jaundice**.
+> - Bilirubin concentrations and clinical risk categories cannot be inferred without pairing spectral readings against gold-standard laboratory **Serum Total Bilirubin (STB)** blood test reference measurements.
+> - The system explicitly reports status: `Calibration Required` until an empirically validated model trained on certified clinical reference data is loaded.
+
+---
+
+## 🔌 Hardware Connections (NodeMCU ESP8266)
+
+| Peripheral Pin | NodeMCU Pin | GPIO | Wire Purpose | Electrical Notes |
+|---|---|---|---|---|
+| **GY-9960 SDA & OLED SDA** | **D2** | **GPIO 4** | Shared I²C Data | Pull-up to 3.3V included on breakout boards |
+| **GY-9960 SCL & OLED SCL** | **D1** | **GPIO 5** | Shared I²C Clock | Standard NodeMCU I²C clock line (100 kHz) |
+| **Push Button** | **D6** | **GPIO 12** | Scan Trigger | Connect to **GND** (configured with internal `INPUT_PULLUP`) |
+| **Diagnostic LED** | **D5** | **GPIO 14** | Scan Indicator | Connect through a **220–330 Ω resistor** to GND |
+| **Sensor VCC & OLED VCC** | **3.3V (3V3)** | **3.3V** | Power Supply | **Must be 3.3V**. Do NOT connect to 5V (VIN)! |
+| **Common GND** | **GND** | **GND** | Ground | Connect all ground pins together |
+
+- *GY-9960 / APDS-9960 I²C Address*: `0x39`
+- *SSD1306 OLED I²C Address*: `0x3C`
+
+---
+
+## 🌐 On-Board Web Dashboard (Port 80)
+The NodeMCU ESP8266 hosts its own embedded web server on **Port 80**:
+1. When connected to your local Wi-Fi, the OLED and Serial Monitor display the NodeMCU IP (e.g., `http://192.168.1.150`).
+2. Open that URL on any PC or phone browser on the same Wi-Fi network.
+3. If no Wi-Fi router is available, the NodeMCU automatically starts an Access Point:
+   - **SSID**: `Jaundice-Screener-AP` (Password: `12345678`)
+   - **Dashboard URL**: `http://192.168.4.1/`
+4. The dashboard provides:
+   - Live color swatch synthesis matching what the sensor sees
+   - Real-time Red, Green, Blue, and Clear count meters
+   - Jaundice optical ratios (R/B and Yellow Index)
+   - "Take Optical Scan Now" button to trigger readings remotely via AJAX
+
+---
+
+## 💻 Arduino IDE Setup & Upload Instructions
+
+### 1. Arduino IDE Board Configuration
+1. Open **Arduino IDE** (v2.x or v1.8.x).
+2. Go to **Tools > Board > ESP8266 Boards > NodeMCU 1.0 (ESP-12E Module)**.
+3. Select your serial port under **Tools > Port** (e.g., `COM3`, `COM4`, etc.).
+4. Set **Upload Speed** to `115200` or `921600`.
+5. Set **CPU Frequency** to `80 MHz` (or `160 MHz`).
+
+### 2. Required Libraries
+Install via the Arduino Library Manager (**Sketch > Include Library > Manage Libraries...**):
+1. **Adafruit SSD1306** (by Adafruit)
+2. **Adafruit GFX Library** (by Adafruit)
+3. **ArduinoJson** (v6 or v7 by Benoît Blanchon)
+*(ESP8266WiFi, ESP8266WebServer, and Wire are included in the ESP8266 Core)*
+
+### 3. Firmware Location
+Open [`hardware/esp8266_sensor_node/esp8266_sensor_node.ino`](file:///hardware/esp8266_sensor_node/esp8266_sensor_node.ino) in Arduino IDE.
+Update the Wi-Fi placeholders:
+```cpp
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 ```
-design thinking project 1/
-│
-├── backend/
-│   ├── app.py                 # Flask REST API server with /predict, /history, /statistics, /export-dataset
-│   ├── config.py              # Configurable sensor risk thresholds & DB settings
-│   ├── models.py              # SQLAlchemy database ORM models (Patient, Screening)
-│   ├── schema.sql             # SQL script for database creation
-│   └── requirements.txt       # Python backend dependencies
-│
-├── frontend/
-│   ├── index.html             # Main HTML entry with Bootstrap 5
-│   ├── vite.config.js         # Vite configuration with API proxy
-│   ├── package.json           # Frontend React dependencies
-│   └── src/
-│       ├── main.jsx           # React DOM root
-│       ├── App.jsx            # Application routing setup
-│       ├── index.css          # Medical UI design system styling
-│       ├── services/
-│       │   └── api.js         # Axios API client wrapper
-│       ├── components/
-│       │   ├── Navbar.jsx     # Navigation bar with dataset export button
-│       │   ├── Footer.jsx     # Medical prototype footer
-│       │   ├── RiskGauge.jsx  # Visual progress bar (0-255 spectrum)
-│       │   └── ResultCard.jsx # Screening result card with recommendation
-│       └── pages/
-│           ├── Home.jsx       # Project vision, description & workflow
-│           ├── Screening.jsx  # Interactive sensor input (0-255) & patient form
-│           ├── Dashboard.jsx  # Metrics (Total, Normal, Mild, High Risk) & charts
-│           ├── History.jsx    # Table with search, view, & delete actions
-│           └── HardwareMLGuide.jsx # ESP32 hardware & ML dataset guide
-│
-├── dataset/
-│   ├── jaundice_optical_dataset.csv  # Auto-generated CSV training dataset
-│   ├── sample_sensor_data.csv        # Sample dataset seed
-│   └── README.md                     # Dataset schema documentation
-│
-├── ml/
-│   ├── train_model.py         # Supervised ML model training script (Random Forest)
-│   └── predict.py             # Inference module for trained ML model transition
-│
-├── hardware/
-│   └── esp32_sensor_node.ino  # ESP32 C++ firmware sketch for optical sensor
-│
-└── README.md                  # Comprehensive setup & project documentation
+
+### 4. Upload & Serial Monitor
+1. Click the **Upload** button in the Arduino IDE.
+2. If the ESP32 gets stuck on `Connecting......._____`, press and hold the **BOOT** button on the ESP32 board until uploading starts.
+3. Once upload completes, open **Tools > Serial Monitor** and set baud rate to **115200 baud**.
+
+---
+
+## 🖥️ Expected Serial Monitor Output
+
+```text
+=================================================================
+ Neonatal Jaundice Screening Prototype - ESP32 & AS7262 Node    
+=================================================================
+[SETUP] Initializing I2C bus on SDA: GPIO 21, SCL: GPIO 22...
+[I2C] Probing for AMS AS7262 spectral sensor at address 0x49...
+[SUCCESS] AS7262 visible spectral sensor detected and initialized.
+[HARDWARE] Onboard white illumination LED configured (12.5mA mode).
+
+[WIFI] Connecting to network: MyHomeWiFi......
+[WIFI SUCCESS] Connected to Wi-Fi!
+[WIFI] ESP32 Assigned IP: 192.168.1.155
+[WIFI] Target Backend URL: http://192.168.1.100:5000/api/predict
+=================================================================
+ Starting continuous spectral measurement loop...                
+=================================================================
+
+-----------------------------------------------------------------
+[SCAN #1] Triggering AS7262 spectral acquisition...
+=== Calibrated Spectral Irradiance (uW/cm^2) ===
+  Violet (450 nm - Bilirubin Absorption Peak) : 14.25
+  Blue   (500 nm - Bilirubin Absorption Slope): 22.80
+  Green  (550 nm - Hb / Reference Band)       : 31.50
+  Yellow (570 nm - Background Tissue Band)    : 27.40
+  Orange (600 nm - Background Tissue Band)    : 20.10
+  Red    (650 nm - Cutaneous Baseline)        : 15.30
+=== Raw Sensor ADC Counts (0 - 65535) ===
+  Raw: V=142 | B=228 | G=315 | Y=274 | O=201 | R=153
+[SAFETY DISCLAIMER] Experimental prototype reading. Calibration against Serum Total Bilirubin required.
+[HTTP] Transmitting spectral payload to Flask REST API...
+[HTTP SUCCESS] Response Code: 201
+[HTTP RESPONSE] {"calibration_status":"Calibration Required","channels":{"blue":22.8,"green":31.5,"orange":20.1,"red":15.3,"violet":14.25,"yellow":27.4},"confidence":0.0,"id":6,"is_calibrated":false,"status":"Calibration Required"...}
 ```
 
 ---
 
-## ⚙️ Prediction Thresholds (MVP Rule Engine)
+## 📡 REST API & Real-Time Telemetry Specification
 
-Risk categories are evaluated using configurable thresholds defined in `backend/config.py`:
-
-| Sensor Value Range ($$0 - 255$$) | Predicted Risk Status | Confidence Score | Clinical Recommendation |
-|---|---|---|---|
-| **100 – 255** | **Normal** | $$90\% - 99\%$$ | Optical reading within healthy limits. No evidence of jaundice detected. |
-| **70 – 99** | **Mild Risk** | $$82\% - 95\%$$ | Borderline optical reading detected. Monitor symptoms and re-test in 24h. |
-| **0 – 69** | **High Risk** | $$92\% - 98\%$$ | Please consult a healthcare professional for further evaluation and blood bilirubin test. |
-
----
-
-## 📡 REST API Documentation
-
-### 1. Execute Screening / Prediction
-- **Endpoint**: `POST /api/predict`
-- **Request Body**:
+### 1. `POST /api/predict` (Hardware Ingestion)
+Transmits real-time GY-9960 sensor telemetry from NodeMCU ESP8266:
 ```json
 {
-  "sensor_value": 85,
-  "name": "Patient A",
-  "age": 21,
-  "gender": "Male"
+  "device_id": "NodeMCU_ESP8266_GY9960_01",
+  "sensor_type": "GY-9960",
+  "name": "NodeMCU Optical Subject",
+  "red": 380,
+  "green": 406,
+  "blue": 319,
+  "clear": 1163,
+  "ratio_rb": 1.19,
+  "sensor_value": 1163
 }
 ```
-- **Response**:
+
+### 2. `GET /api/latest` (Dashboard Polling Engine)
+Returns the most recent reading and device connectivity status (polled by the web dashboard every 1.5s):
 ```json
 {
-  "id": 1,
-  "reading": 85,
-  "sensor_value": 85,
-  "status": "Mild Risk",
-  "confidence": 82.0,
-  "recommendation": "Borderline optical reading detected. Monitor symptoms and re-test in 24h.",
-  "patient": {
-    "id": 1,
-    "name": "Patient A",
-    "age": 21,
-    "gender": "Male"
-  },
-  "timestamp": "2026-08-21 20:45:00"
+  "connected": true,
+  "seconds_since_last_reading": 0.4,
+  "message": "Hardware stream active",
+  "latest": {
+    "id": 20,
+    "sensor_type": "GY-9960",
+    "clear": 1163,
+    "red": 380.0,
+    "green": 406.0,
+    "blue": 319.0,
+    "ratio_rb": 1.19,
+    "yellow_index": 1.23,
+    "status": "Calibration Required",
+    "timestamp": "2026-10-25 19:52:19"
+  }
 }
 ```
 
-### 2. Get Screening History
-- **Endpoint**: `GET /api/history`
-- **Response**: Returns list of all stored screening records.
+---
 
-### 3. Get Dashboard Statistics
-- **Endpoint**: `GET /api/statistics`
-- **Response**: Returns total screenings count, normal count, mild risk count, high risk count, and recent history.
+## 🔍 Troubleshooting Guide
 
-### 4. Export AI Training Dataset
-- **Endpoint**: `GET /api/export-dataset`
-- **Response**: CSV File stream with header `patient_id,age,gender,sensor_reading,predicted_status,timestamp`.
+### Issue 1: Sensor Not Detected / I²C Scan Finds Zero Devices
+If Serial Monitor outputs `[CRITICAL ERROR] GY-9960 sensor communication failed!`:
+1. **Power Check**: Verify the sensor VCC is connected to the NodeMCU **3.3V pin** (not 5V, not VIN).
+2. **Pin Mapping**: Check that SDA is firmly wired to **D2 (GPIO 4)** and SCL to **D1 (GPIO 5)**.
+3. **I²C Addresses**: GY-9960 is at `0x39`, and the SSD1306 OLED is at `0x3C`.
+4. **Push Button**: Connected to **D6 (GPIO 12)** and **GND** (internal `INPUT_PULLUP`).
+5. **LED**: Connected to **D5 (GPIO 14)** through a 220–330Ω resistor to GND.
 
-### 5. Delete Record
-- **Endpoint**: `DELETE /api/record/{id}`
-- **Response**: Confirms record deletion from SQLite database.
+### Issue 2: HTTP Connection Fails (`[HTTP BACKEND] Response Code: -1`)
+1. **LAN IP Address**: Ensure `backendUrl` in the `.ino` sketch uses your computer's actual local IPv4 address (found via `ipconfig` in Command Prompt, e.g., `http://192.168.1.100:5000/api/predict`), **not** `localhost` or `127.0.0.1`.
+2. **Firewall**: Windows Defender Firewall may block incoming connections on port 5000. Add an inbound rule allowing Python or port 5000 on private networks.
+3. **Same Wi-Fi Network**: Ensure both your NodeMCU and your development PC are connected to the exact same Wi-Fi router / mobile hotspot subnet.
+4. **Flask Host**: Ensure the Flask backend is running on `0.0.0.0:5000`.
 
 ---
 
-## 🔬 Machine Learning Transition Guide
+## 🚀 Running and Testing the Dashboard
 
-1. **Collect Data**: Every simulated screening or ESP32 hardware reading is saved to `jaundice_screening.db`.
-2. **Export Dataset**: Click **Export Dataset (CSV)** in the navbar or call `GET /api/export-dataset`.
-3. **Train Model**: Run the training script:
-   ```bash
-   python ml/train_model.py
-   ```
-4. **Deploy AI Model**: `ml/predict.py` loads `jaundice_sensor_model.pkl` and overrides rule-based thresholds with ML probability predictions.
-
----
-
-## 🔌 Hardware Integration (ESP32 / TCS34725)
-
-The hardware architecture follows:
-$$\text{LED Light Source} \longrightarrow \text{Tissue / Finger} \longrightarrow \text{TCS34725 Sensor} \longrightarrow \text{ESP32 ADC} \longrightarrow \text{Flask API} \longrightarrow \text{Database}$$
-
-1. Flash the ESP32 using Arduino IDE with the provided sketch in `hardware/esp32_sensor_node.ino`.
-2. Configure Wi-Fi SSID/password and Flask server IP address (`http://<SERVER_IP>:5000/api/predict`).
-3. ESP32 will read analog optical transmittance, normalize value to 0-255, and send HTTP POST requests automatically.
-
----
-
-## 🚀 Setup Instructions
-
-### Backend Setup (Python Flask)
+### 1. Start the Flask Backend Server
 ```bash
-# Navigate to project root
-cd "design thinking project 1"
-
-# Create and activate Python virtual environment
-py -m venv backend/venv
-backend\venv\Scripts\activate   # On Windows
-
-# Install backend dependencies
-pip install Flask Flask-CORS Flask-SQLAlchemy pandas scikit-learn joblib
-
-# Start Flask Backend Server
+# In project root with active venv:
 python backend/app.py
 ```
-*Server runs on `http://127.0.0.1:5000`.*
+Open your browser at `http://127.0.0.1:5000` to view the Real-Time Optical Monitoring Dashboard.
 
-### Frontend Setup (React + Vite)
+### 2. Simulate Telemetry (If Hardware is Not Yet Powered)
 ```bash
-# Navigate to frontend folder
-cd frontend
-
-# Install Node dependencies (if node/npm installed)
-npm install
-
-# Start Vite React Development Server
-npm run dev
+python simulate_nodemcu_hardware.py --interval 1.5
 ```
-*Frontend runs on `http://localhost:3000`.*
+Watch the live dashboard update every 1.5 seconds with live Clear, Red, Green, and Blue readings and rolling Chart.js line graph!
+
+### 3. Flash Physical NodeMCU ESP8266
+1. Open [`hardware/esp32_sensor_node.ino`](file:///hardware/esp32_sensor_node.ino) or [`hardware/esp8266_sensor_node/esp8266_sensor_node.ino`](file:///hardware/esp8266_sensor_node/esp8266_sensor_node.ino) in Arduino IDE.
+2. Update `ssid`, `password`, and your PC's IP in `backendUrl`.
+3. Select Board: **NodeMCU 1.0 (ESP-12E Module)**, Port: your COM port.
+4. Upload firmware and watch real-time data stream directly onto the OLED and web dashboard!
