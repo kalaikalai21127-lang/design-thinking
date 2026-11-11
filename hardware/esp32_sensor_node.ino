@@ -1,74 +1,84 @@
 /*
 ================================================================================
 Low-Cost Neonatal Jaundice Screening Prototype
-NodeMCU ESP8266 (ESP-12E) Firmware Sketch
+ESP32 & NodeMCU Dual-Compatible Optical Sensor Node Firmware
 ================================================================================
 Hardware Specifications:
-- Microcontroller : NodeMCU ESP8266 (ESP-12E Module)
+- Microcontroller : ESP32 DevKit / Dev Module (or NodeMCU ESP8266)
 - Colour Sensor   : GY-9960 / APDS-9960-compatible RGB & Ambient Light Module (I2C 0x39)
 - OLED Display    : 0.96-inch SSD1306 Monochrome 128x64 OLED (I2C 0x3C)
-- Push Button     : NodeMCU D6 (GPIO 12) -> Connected to GND (using INPUT_PULLUP)
-- Diagnostic LED  : NodeMCU D5 (GPIO 14) -> Connected to LED via 220-330 ohm resistor
-- Power Supply    : 3.3V (3V3) & GND shared across NodeMCU, GY-9960, and SSD1306
+- Push Button     : ESP32 GPIO 4 / NodeMCU D6 -> Connected to GND (INPUT_PULLUP)
+- Diagnostic LED  : ESP32 GPIO 2 (Onboard Blue LED) / NodeMCU D5 (GPIO 14)
+- Power Supply    : 3.3V (3V3) & GND shared across board, GY-9960, and SSD1306
 
-Pin Mapping (NodeMCU ESP8266):
-- I2C SDA         : D2 (GPIO 4) -> Connected to GY-9960 SDA and SSD1306 SDA
-- I2C SCL         : D1 (GPIO 5) -> Connected to GY-9960 SCL and SSD1306 SCL
-- Push Button     : D6 (GPIO 12) -> Pulls to GND on press (Triggers optical scan)
-- Status LED      : D5 (GPIO 14) -> Active HIGH (with 220-330 ohm resistor to GND)
-- VCC             : NodeMCU 3.3V (Do NOT use 5V for sensor or OLED)
-- GND             : NodeMCU Common Ground (GND)
+ESP32 Pin Mapping:
+- I2C SDA         : GPIO 21 -> Connected to GY-9960 SDA and SSD1306 SDA
+- I2C SCL         : GPIO 22 -> Connected to GY-9960 SCL and SSD1306 SCL
+- Push Button     : GPIO 4  -> Pulls to GND on press (Triggers optical scan)
+- Status LED      : GPIO 2  -> ESP32 built-in blue LED
+- VCC             : 3.3V (Do NOT connect sensor to 5V / VIN!)
+- GND             : Common Ground (GND)
 
-Features:
-1. Native I2C driver for GY-9960 / APDS-9960 color sensor (0x39) - no extra sensor
-   library installation required. Reads Red, Green, Blue, Clear channels.
-2. SSD1306 0.96" OLED display (0x3C) showing live status, IP address, and R/G/B/C metrics.
-3. Embedded Responsive Web Dashboard hosted directly on NodeMCU port 80 using ESP8266WebServer.
-   Access via http://<ESP8266_IP>/ on any browser or smartphone.
-4. Push button on D6 triggers immediate optical measurement, updates OLED, and updates web UI.
-5. LED on D5 indicates scanning, Wi-Fi status, and diagnostic feedback.
-6. Configurable Wi-Fi credentials with automatic fallback to SoftAP (192.168.4.1) if router is unavailable.
-7. Optional background HTTP POST to Flask REST backend (/api/predict) for long-term database logging.
+NodeMCU ESP8266 Pin Mapping:
+- I2C SDA         : D2 (GPIO 4)
+- I2C SCL         : D1 (GPIO 5)
+- Push Button     : D6 (GPIO 12)
+- Status LED      : D5 (GPIO 14)
 ================================================================================
 Required Arduino IDE Libraries:
 1. "Adafruit SSD1306" (by Adafruit - install via Library Manager)
 2. "Adafruit GFX Library" (by Adafruit - install via Library Manager)
 3. "ArduinoJson" (v6 or v7 by Benoit Blanchon - install via Library Manager)
-4. "ESP8266WiFi" & "ESP8266WebServer" & "Wire" (Built into ESP8266 Arduino Core)
+*(WiFi, HTTPClient, and Wire are built into the ESP32 / ESP8266 Arduino Core)*
 ================================================================================
 */
 
 #include <Wire.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
-#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-// ============================================================================
-// HARDWARE PIN DEFINITIONS (NodeMCU ESP-12E)
-// ============================================================================
-#ifndef D1
-  #define D1 5
-#endif
-#ifndef D2
-  #define D2 4
-#endif
-#ifndef D5
-  #define D5 14
-#endif
-#ifndef D6
-  #define D6 12
-#endif
+#if defined(ESP32)
+  #include <WiFi.h>
+  #include <WebServer.h>
+  #include <HTTPClient.h>
+  #include <WiFiClientSecure.h>
 
-// Official project pin assignments
-const uint8_t PIN_I2C_SDA = D2; // GPIO 4  - Shared I2C Data (GY-9960 + SSD1306)
-const uint8_t PIN_I2C_SCL = D1; // GPIO 5  - Shared I2C Clock (GY-9960 + SSD1306)
-const uint8_t PIN_BUTTON  = D6; // GPIO 12 - Push Button to GND (INPUT_PULLUP)
-const uint8_t PIN_LED     = D5; // GPIO 14 - Status / Illumination LED (Active HIGH)
+  // ESP32 Standard Pin Assignments
+  const uint8_t PIN_I2C_SDA = 21; // GPIO 21 - Shared I2C Data (GY-9960 + SSD1306)
+  const uint8_t PIN_I2C_SCL = 22; // GPIO 22 - Shared I2C Clock (GY-9960 + SSD1306)
+  const uint8_t PIN_BUTTON  = 4;  // GPIO 4  - Push Button to GND (INPUT_PULLUP)
+  const uint8_t PIN_LED     = 2;  // GPIO 2  - ESP32 Built-in Blue LED / Diagnostic
+  #define BOARD_NAME "ESP32 Dev Module"
+  #define DEVICE_ID  "ESP32_GY9960_01"
+#else
+  #include <ESP8266WiFi.h>
+  #include <ESP8266WebServer.h>
+  #include <ESP8266HTTPClient.h>
+  #include <WiFiClient.h>
+  #include <WiFiClientSecure.h>
+  typedef ESP8266WebServer WebServer;
+
+  #ifndef D1
+    #define D1 5
+  #endif
+  #ifndef D2
+    #define D2 4
+  #endif
+  #ifndef D5
+    #define D5 14
+  #endif
+  #ifndef D6
+    #define D6 12
+  #endif
+
+  const uint8_t PIN_I2C_SDA = D2; // GPIO 4
+  const uint8_t PIN_I2C_SCL = D1; // GPIO 5
+  const uint8_t PIN_BUTTON  = D6; // GPIO 12
+  const uint8_t PIN_LED     = D5; // GPIO 14
+  #define BOARD_NAME "NodeMCU ESP8266"
+  #define DEVICE_ID  "NodeMCU_ESP8266_GY9960_01"
+#endif
 
 // ============================================================================
 // OLED DISPLAY DEFINITIONS (0.96" SSD1306 I2C 0x3C)
@@ -101,17 +111,16 @@ bool sensorDetected = false;
 // ============================================================================
 // WI-FI & WEB SERVER CONFIGURATION
 // ============================================================================
-// Configurable network credentials placeholder
-// Replace with your local Wi-Fi router or mobile hotspot credentials
-const char* ssid     = "nonetwork";
-const char* password = "12345678";
+// Replace with your local Wi-Fi router or mobile hotspot credentials:
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // Fallback SoftAP credentials if router Wi-Fi is unavailable
 const char* ap_ssid  = "Jaundice-Screener-AP";
 const char* ap_pass  = "12345678";
 
 // Embedded Web Server on Port 80
-ESP8266WebServer server(80);
+WebServer server(80);
 
 // Real-Time Automatic Background Streaming Configuration
 // Set to true to automatically stream sensor readings to the Flask website every 1.5s
@@ -120,8 +129,10 @@ const bool ENABLE_CONTINUOUS_STREAM = true;
 const unsigned long STREAM_INTERVAL_MS = 1500; // Continuous stream every 1.5 seconds
 unsigned long lastStreamTime = 0;
 
-// IMPORTANT: Replace with your development PC's LAN IP address (run 'ipconfig' in command prompt)
-const char* backendUrl = "http://10.248.212.98:5000/api/predict";
+// IMPORTANT: Replace with your development PC's LAN IP address or Cloud Hosted URL
+// Local PC: http://<YOUR_PC_IP>:5000/api/predict (e.g. http://10.244.64.98:5000/api/predict)
+// Cloud URL: https://<YOUR_APP_NAME>.onrender.com/api/predict
+const char* backendUrl = "http://10.244.64.98:5000/api/predict";
 
 // ============================================================================
 // OPTICAL READING DATA STRUCTURE
@@ -316,7 +327,7 @@ void oledShowBootStatus(const char* msg) {
   if (!oledDetected) return;
   oledPrintHeader("JAUNDICE SCREENER");
   display.setCursor(0, 16);
-  display.println(F("NodeMCU ESP8266"));
+  display.println(BOARD_NAME);
   display.println(F("Sensor : GY-9960 (0x39)"));
   display.println(F("OLED   : SSD1306 (0x3C)"));
   display.println(F("---------------------"));
@@ -340,7 +351,7 @@ void oledShowReadyScreen() {
   
   display.printf("GY-9960: %s\n", sensorDetected ? "Ready (0x39)" : "NOT FOUND");
   display.println(F("---------------------"));
-  display.println(F("Press D6: Take Scan"));
+  display.println(F("Press Btn: Take Scan"));
   display.display();
 }
 
@@ -385,7 +396,7 @@ void oledShowResults(const ColorReading &r) {
 
   // Footer prompt
   display.setCursor(0, 56);
-  display.print(F("D6: Scan | Web UI live"));
+  display.print(F("Btn: Scan | Web UI live"));
   display.display();
 }
 
@@ -815,15 +826,16 @@ void sendPayloadToFlaskBackend(const ColorReading &r) {
     StaticJsonDocument<512> doc;
   #endif
 
-  doc["device_id"]   = "NodeMCU_ESP8266_GY9960_01";
+  doc["device_id"]   = DEVICE_ID;
   doc["sensor_type"] = "GY-9960";
-  doc["name"]        = "NodeMCU Optical Subject";
+  doc["name"]        = BOARD_NAME " Subject";
   doc["red"]         = r.red;
   doc["green"]       = r.green;
   doc["blue"]        = r.blue;
   doc["clear"]       = r.clear;
   doc["ratio_rb"]    = r.ratioRB;
-  doc["sensor_value"]= 0;
+  doc["yellow_index"]= r.yellowIndex;
+  doc["sensor_value"]= r.clear;
 
   String payload;
   serializeJson(doc, payload);
@@ -849,10 +861,10 @@ void sendPayloadToFlaskBackend(const ColorReading &r) {
 }
 
 // ============================================================================
-// ACTION: TRIGGER MEASUREMENT FROM PHYSICAL BUTTON (D6)
+// ACTION: TRIGGER MEASUREMENT FROM PHYSICAL BUTTON
 // ============================================================================
 void triggerPhysicalButtonScan() {
-  Serial.println(F("\n[BUTTON D6 PRESSED] Initiating Optical Measurement..."));
+  Serial.printf("\n[BUTTON GPIO %d PRESSED] Initiating Optical Measurement...\n", PIN_BUTTON);
   oledShowScanning();
 
   ColorReading r;
@@ -925,18 +937,18 @@ void setup() {
 
   Serial.println();
   Serial.println(F("================================================================="));
-  Serial.println(F(" Neonatal Jaundice Screening - NodeMCU ESP8266 & GY-9960 Node    "));
+  Serial.printf(" Neonatal Jaundice Screening - %s & GY-9960 Node\n", BOARD_NAME);
   Serial.println(F("================================================================="));
-  Serial.printf("  - Microcontroller : NodeMCU ESP8266 (ESP-12E)\n");
-  Serial.printf("  - I2C Bus Pins    : SDA=D2 (GPIO %d), SCL=D1 (GPIO %d)\n", PIN_I2C_SDA, PIN_I2C_SCL);
-  Serial.printf("  - Push Button Pin : D6 (GPIO %d) [INPUT_PULLUP to GND]\n", PIN_BUTTON);
-  Serial.printf("  - Diagnostic LED  : D5 (GPIO %d) [Active HIGH via resistor]\n", PIN_LED);
+  Serial.printf("  - Microcontroller : %s\n", BOARD_NAME);
+  Serial.printf("  - I2C Bus Pins    : SDA=GPIO %d, SCL=GPIO %d\n", PIN_I2C_SDA, PIN_I2C_SCL);
+  Serial.printf("  - Push Button Pin : GPIO %d [INPUT_PULLUP to GND]\n", PIN_BUTTON);
+  Serial.printf("  - Diagnostic LED  : GPIO %d [Active HIGH]\n", PIN_LED);
   Serial.printf("  - GY-9960 Sensor  : Address 0x39 (Color RGB + Clear)\n");
   Serial.printf("  - SSD1306 OLED    : Address 0x3C (128x64 Monochrome)\n");
-  Serial.printf("  - Web Server      : Port 80 (ESP8266WebServer)\n");
+  Serial.printf("  - Target Backend  : %s\n", backendUrl);
   Serial.println(F("================================================================="));
 
-  // Initialize I2C Bus on ESP8266 (SDA=D2, SCL=D1)
+  // Initialize I2C Bus (ESP32: SDA=21, SCL=22 | NodeMCU: SDA=D2, SCL=D1)
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
   Wire.setClock(100000); // 100 kHz standard I2C clock
 
@@ -961,9 +973,11 @@ void setup() {
   } else {
     sensorDetected = false;
     Serial.println(F("[CRITICAL ERROR] GY-9960 not detected at 0x39!"));
-    Serial.println(F("  Check: VIN to 3.3V, GND, SDA to D2, SCL to D1."));
+    Serial.printf("  Check: VIN to 3.3V, GND, SDA to GPIO %d, SCL to GPIO %d.\n", PIN_I2C_SDA, PIN_I2C_SCL);
     if (oledDetected) {
-      oledShowError("GY-9960 NOT FOUND", "Check I2C wiring:\nD2(SDA) D1(SCL) 3.3V");
+      char errBuf[48];
+      snprintf(errBuf, sizeof(errBuf), "Check I2C:\nSDA:%d SCL:%d 3.3V", PIN_I2C_SDA, PIN_I2C_SCL);
+      oledShowError("GY-9960 NOT FOUND", errBuf);
     }
   }
 
@@ -979,7 +993,7 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.begin();
-  Serial.println(F("[HTTP SERVER] ESP8266WebServer listening on port 80."));
+  Serial.println(F("[HTTP SERVER] Embedded Web Server listening on port 80."));
 
   // Take initial baseline measurement
   if (sensorDetected) {
@@ -993,7 +1007,7 @@ void setup() {
   oledShowReadyScreen();
 
   Serial.println(F("================================================================="));
-  Serial.println(F(" System ready! Press Push Button (D6) or access Web Dashboard    "));
+  Serial.printf(" System ready! Press Push Button (GPIO %d) or use Web Dashboard\n", PIN_BUTTON);
   Serial.println(F(" to perform optical jaundice screening measurements.            "));
   Serial.println(F("=================================================================\n"));
 }
@@ -1002,11 +1016,12 @@ void setup() {
 // ARDUINO MAIN LOOP
 // ============================================================================
 void loop() {
-  // Service incoming HTTP requests on Port 80 (NodeMCU embedded server)
+  // Service incoming HTTP requests on Port 80
   server.handleClient();
 
-  // Allow ESP8266 Wi-Fi background stack to process
-  yield();
+  #if defined(ESP8266)
+    yield();
+  #endif
 
   // Automatic real-time telemetry streaming to Flask backend (every 1.5 seconds)
   if (ENABLE_CONTINUOUS_STREAM && ENABLE_BACKEND_UPLOAD && (WiFi.status() == WL_CONNECTED)) {
@@ -1022,7 +1037,7 @@ void loop() {
     }
   }
 
-  // Check physical push button on D6 (Active LOW with INPUT_PULLUP)
+  // Check physical push button (Active LOW with INPUT_PULLUP)
   if (digitalRead(PIN_BUTTON) == LOW) {
     unsigned long now = millis();
     if (now - lastBtnPressTime > DEBOUNCE_DELAY_MS) {
@@ -1031,6 +1046,5 @@ void loop() {
     }
   }
 
-  // Small delay to prevent tight spin
   delay(5);
 }
