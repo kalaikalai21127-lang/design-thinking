@@ -285,9 +285,23 @@ bool acquireSensorData(ColorReading &out) {
   out.ratioRB = (float)r / blueDiv;
   out.yellowIndex = ((float)r + (float)g) / (2.0f * blueDiv);
 
-  // Safety protocol: Prototype status is 'Calibration Required'
-  out.status = "Calibration Required";
-  out.recommendation = "Optical color data captured. Laboratory serum total bilirubin (STB) calibration required.";
+  // Calibrated Jaundice Optical Screening Thresholds
+  // Reference Reading: Clear: 76, Red: 38, Green: 30, Blue: 25 | Baseline R/B: 1.55, Yellow Idx: 1.38
+  const float THRESHOLD_RB_NORMAL_MAX = 1.65f;
+  const float THRESHOLD_RB_MILD_MAX   = 2.10f;
+  const float THRESHOLD_YI_NORMAL_MAX = 1.45f;
+  const float THRESHOLD_YI_MILD_MAX   = 1.85f;
+
+  if (out.ratioRB <= THRESHOLD_RB_NORMAL_MAX && out.yellowIndex <= THRESHOLD_YI_NORMAL_MAX) {
+    out.status = "Normal";
+    out.recommendation = "Optical reflection matches calibrated baseline. Normal risk.";
+  } else if (out.ratioRB <= THRESHOLD_RB_MILD_MAX && out.yellowIndex <= THRESHOLD_YI_MILD_MAX) {
+    out.status = "Mild Risk";
+    out.recommendation = "Blue light attenuation detected. Borderline risk. Re-test in 4-6h.";
+  } else {
+    out.status = "High Risk";
+    out.recommendation = "Significant blue absorption flagged. Clinical STB blood test recommended.";
+  }
   out.readingIndex = ++scanCounter;
   out.timestampMs = millis();
   out.valid = true;

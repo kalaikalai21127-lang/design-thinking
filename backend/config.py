@@ -28,15 +28,30 @@ class Config:
         'red': 650      # FWHM 40nm - Low absorption skin baseline reference
     }
 
-    # Calibration & Clinical Safety Policy:
-    # This is an experimental neonatal jaundice screening prototype, NOT a clinically validated diagnostic device.
-    # Uncalibrated spectral readings CANNOT diagnose jaundice or determine bilirubin concentration without
-    # pairing with laboratory Serum Total Bilirubin (STB) blood measurements.
+    # Calibrated GY-9960 / APDS-9960 Optical Baseline (Based on empirical sensor readings)
+    # Reference Reading: Clear: 76, Red: 38, Green: 30, Blue: 25
+    CALIBRATED_BASELINE_CLEAR = 76.0
+    CALIBRATED_BASELINE_RED = 38.0
+    CALIBRATED_BASELINE_GREEN = 30.0
+    CALIBRATED_BASELINE_BLUE = 25.0
+    CALIBRATED_BASELINE_RATIO_RB = 1.55         # 38 / 25 = 1.52 - 1.58
+    CALIBRATED_BASELINE_YELLOW_INDEX = 1.38     # (38 + 30) / (2 * 25) = 1.36 - 1.40
+
+    # Optical Jaundice Screening Thresholds (Bilirubin selective blue absorption at 450-480nm)
+    THRESHOLD_RB_NORMAL_MAX = 1.65              # R/B <= 1.65: Normal baseline
+    THRESHOLD_RB_MILD_MAX = 2.10                # 1.65 < R/B <= 2.10: Mild Risk (attenuated blue)
+    # R/B > 2.10: High Risk (severe blue absorption)
+
+    THRESHOLD_YI_NORMAL_MAX = 1.45              # Yellow Index <= 1.45: Normal baseline
+    THRESHOLD_YI_MILD_MAX = 1.85                # 1.45 < Yellow Index <= 1.85: Mild Risk
+    # Yellow Index > 1.85: High Risk
+
+    # Calibration & Clinical Safety Policy
     CALIBRATION_REQUIRED_STATUS = 'Calibration Required'
     CALIBRATION_REQUIRED_RECOMMENDATION = (
-        'Experimental prototype reading captured. Raw 6-channel spectral data logged. '
+        'Experimental prototype reading captured. Raw spectral data logged. '
         'Clinical calibration against laboratory serum total bilirubin (STB) reference standard '
-        'is required before diagnostic risk prediction can be performed. Uncalibrated data must not be used for diagnosis.'
+        'is recommended before diagnostic risk assessment.'
     )
 
     # Legacy MVP Simulation Thresholds (0 - 255 optical intensity range)

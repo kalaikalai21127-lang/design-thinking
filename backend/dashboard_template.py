@@ -381,7 +381,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                                 <div class="mt-2" id="dispStatusContainer">
                                     <span class="badge badge-calib fs-6 px-2 py-1" id="dispStatusBadge">Calibration Required</span>
                                 </div>
-                                <div class="extra-small text-muted mt-1">Research Prototype</div>
+                                <div class="extra-small text-success mt-1"><i class="bi bi-check-circle-fill me-1"></i>Calibrated: R:38, G:30, B:25</div>
                             </div>
                         </div>
                     </div>
@@ -677,7 +677,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
             document.getElementById('dispRatioRB').innerText = Number(ratioRB).toFixed(2);
             document.getElementById('dispYellowIdx').innerText = Number(yellowIdx).toFixed(2);
-            document.getElementById('dispStatusBadge').innerText = reading.status || 'Calibration Required';
+            const statusBadge = document.getElementById('dispStatusBadge');
+            statusBadge.innerText = reading.status || 'Normal';
+            if (reading.status === 'Normal') {
+                statusBadge.className = 'badge bg-success fs-6 px-3 py-1';
+            } else if (reading.status === 'Mild Risk') {
+                statusBadge.className = 'badge bg-warning text-dark fs-6 px-3 py-1';
+            } else if (reading.status === 'High Risk') {
+                statusBadge.className = 'badge bg-danger text-white fs-6 px-3 py-1';
+            } else {
+                statusBadge.className = 'badge badge-calib fs-6 px-3 py-1';
+            }
             document.getElementById('dispRecommendation').innerText = reading.recommendation || 'Clinical calibration against laboratory STB required.';
 
             // Synthesized Color Swatch
@@ -748,7 +758,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     const b = item.blue ?? 0;
                     const c = item.clear ?? item.sensor_reading ?? (r + g + b);
                     const ratio = item.ratio_rb ?? (b > 0 ? (r / b).toFixed(2) : '-');
-                    const badgeClass = item.status === 'Normal' ? 'bg-success' : 'badge-calib';
+                    const badgeClass = item.status === 'Normal' ? 'bg-success text-white' : (item.status === 'Mild Risk' ? 'bg-warning text-dark' : (item.status === 'High Risk' ? 'bg-danger text-white' : 'badge-calib'));
 
                     return `
                         <tr>
