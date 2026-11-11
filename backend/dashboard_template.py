@@ -392,6 +392,114 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             </div>
         </div>
 
+        <!-- CLINICAL THRESHOLD RANGES: NORMAL, AVERAGE, CRITICAL -->
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="medical-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-speedometer2 text-teal"></i> Cutaneous Bilirubin Screening Threshold Ranges
+                            </h6>
+                            <span class="text-muted extra-small">Calibrated from empirical sensor run (Clear: 75-77 | Red: 38 | Green: 29-30 | Blue: 24-25)</span>
+                        </div>
+                        <div>
+                            <span class="badge py-1 px-3 rounded-pill bg-light border text-dark extra-small">
+                                <i class="bi bi-shield-check text-success me-1"></i> Empirical Baseline: R/B = 1.55 | Yellow Index = 1.38
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 3 Cards: Normal, Average, Critical -->
+                    <div class="row g-3">
+                        <!-- 1. NORMAL RANGE -->
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 border h-100 bg-white" style="border-left: 5px solid #22c55e !important; box-shadow: 0 2px 8px rgba(34,197,94,0.08);">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold extra-small">
+                                        <i class="bi bi-check-circle-fill me-1"></i> NORMAL (Low Risk)
+                                    </span>
+                                    <span class="fw-bold text-success fs-6">&le; 1.65 R/B</span>
+                                </div>
+                                <ul class="list-unstyled extra-small text-dark mb-2 lh-lg">
+                                    <li><strong>R/B Optical Ratio:</strong> <span class="badge bg-light text-dark border">&le; 1.65</span> (Baseline: 1.52 &ndash; 1.58)</li>
+                                    <li><strong>Yellow-Blue Index:</strong> <span class="badge bg-light text-dark border">&le; 1.45</span> (Baseline: 1.36 &ndash; 1.40)</li>
+                                    <li><strong>Blue Reflection (B):</strong> <span class="badge bg-light text-dark border">&ge; 24 counts</span> (Unattenuated)</li>
+                                    <li><strong>Estimated TcB / STB:</strong> &lt; 5.0 mg/dL (Physiological)</li>
+                                </ul>
+                                <div class="p-2 rounded bg-light extra-small text-muted border">
+                                    <strong class="text-success">Action:</strong> Normal cutaneous baseline. Routine follow-up; no phototherapy required.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. AVERAGE RANGE -->
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 border h-100 bg-white" style="border-left: 5px solid #f59e0b !important; box-shadow: 0 2px 8px rgba(245,158,11,0.08);">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 fw-bold extra-small">
+                                        <i class="bi bi-exclamation-circle-fill me-1"></i> AVERAGE (Mild Risk)
+                                    </span>
+                                    <span class="fw-bold text-warning-emphasis fs-6">1.66 &ndash; 2.10 R/B</span>
+                                </div>
+                                <ul class="list-unstyled extra-small text-dark mb-2 lh-lg">
+                                    <li><strong>R/B Optical Ratio:</strong> <span class="badge bg-light text-dark border">1.66 &ndash; 2.10</span></li>
+                                    <li><strong>Yellow-Blue Index:</strong> <span class="badge bg-light text-dark border">1.46 &ndash; 1.85</span></li>
+                                    <li><strong>Blue Reflection (B):</strong> <span class="badge bg-light text-dark border">19 &ndash; 23 counts</span> (Moderate Drop)</li>
+                                    <li><strong>Estimated TcB / STB:</strong> 5.0 &ndash; 12.0 mg/dL (Surveillance)</li>
+                                </ul>
+                                <div class="p-2 rounded bg-light extra-small text-muted border">
+                                    <strong class="text-warning-emphasis">Action:</strong> Borderline blue light absorption. Re-screen in 4&ndash;6 hours or check with TcB.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. CRITICAL RANGE -->
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 border h-100 bg-white" style="border-left: 5px solid #ef4444 !important; box-shadow: 0 2px 8px rgba(239,68,68,0.08);">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fw-bold extra-small">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i> CRITICAL (High Risk)
+                                    </span>
+                                    <span class="fw-bold text-danger fs-6">&gt; 2.10 R/B</span>
+                                </div>
+                                <ul class="list-unstyled extra-small text-dark mb-2 lh-lg">
+                                    <li><strong>R/B Optical Ratio:</strong> <span class="badge bg-light text-dark border">&gt; 2.10</span></li>
+                                    <li><strong>Yellow-Blue Index:</strong> <span class="badge bg-light text-dark border">&gt; 1.85</span></li>
+                                    <li><strong>Blue Reflection (B):</strong> <span class="badge bg-light text-dark border">&lt; 19 counts</span> (Severe Attenuation)</li>
+                                    <li><strong>Estimated TcB / STB:</strong> &gt; 12.0 &ndash; 15.0+ mg/dL (Phototherapy Risk)</li>
+                                </ul>
+                                <div class="p-2 rounded bg-light extra-small text-muted border">
+                                    <strong class="text-danger">Action:</strong> Severe blue light absorption. Immediate pediatric workup & STB blood test recommended.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Range Continuum Bar -->
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between extra-small fw-semibold text-muted mb-1">
+                            <span class="text-success"><i class="bi bi-shield-check"></i> Normal Zone (&le; 1.65)</span>
+                            <span class="text-warning-emphasis"><i class="bi bi-exclamation-circle"></i> Average / Mild Risk (1.66 - 2.10)</span>
+                            <span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Critical Zone (&gt; 2.10)</span>
+                        </div>
+                        <div class="progress position-relative" style="height: 12px; border-radius: 6px; background-color: #e2e8f0;">
+                            <div class="progress-bar bg-success" style="width: 45%;" title="Normal: R/B &le; 1.65"></div>
+                            <div class="progress-bar bg-warning" style="width: 30%;" title="Average: R/B 1.66 - 2.10"></div>
+                            <div class="progress-bar bg-danger" style="width: 25%;" title="Critical: R/B &gt; 2.10"></div>
+                        </div>
+                        <div class="d-flex justify-content-between extra-small text-muted mt-1" style="font-size: 0.72rem;">
+                            <span>1.0</span>
+                            <span class="fw-bold text-success">1.52 (Your Baseline)</span>
+                            <span class="fw-bold text-warning-emphasis">1.65 (Normal Max)</span>
+                            <span class="fw-bold text-danger">2.10 (Critical Threshold)</span>
+                            <span>3.0+</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- REAL-TIME LINE CHART (TRENDS OVER TIME) -->
         <div class="row g-3 mb-4">
             <div class="col-12">
@@ -405,6 +513,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge bg-light text-dark border small">Auto-updating every 1.5s</span>
+                            <button class="btn btn-sm btn-medical py-0 px-2 me-1" onclick="loadCalibratedGraphData()" title="Show the 13 calibrated sensor runs">
+                                <i class="bi bi-graph-up-arrow"></i> Load 13 Calibrated Runs
+                            </button>
                             <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="resetChartData()" title="Reset chart window">
                                 <i class="bi bi-trash"></i> Reset Chart
                             </button>
@@ -509,12 +620,49 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         let lastLoggedId = null;
         let sensorChart = null;
 
-        const MAX_CHART_POINTS = 20;
+        const MAX_CHART_POINTS = 30;
         const chartLabels = [];
         const chartDataRed = [];
         const chartDataGreen = [];
         const chartDataBlue = [];
         const chartDataClear = [];
+        const chartDataRatio = [];
+
+        // 13 Calibrated Sensor Readings Provided by Hardware
+        const CALIBRATED_RUNS = [
+            { id: 1,  time: "719s", led: "OFF",   c: 77, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 2,  time: "720s", led: "BLUE",  c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 3,  time: "721s", led: "GREEN", c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 4,  time: "722s", led: "WHITE", c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 5,  time: "724s", led: "OFF",   c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 6,  time: "725s", led: "BLUE",  c: 76, r: 38, g: 30, b: 24, ratio: 1.58 },
+            { id: 7,  time: "726s", led: "GREEN", c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 8,  time: "727s", led: "WHITE", c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 9,  time: "729s", led: "OFF",   c: 76, r: 38, g: 30, b: 25, ratio: 1.52 },
+            { id: 10, time: "730s", led: "BLUE",  c: 75, r: 38, g: 30, b: 24, ratio: 1.58 },
+            { id: 11, time: "732s", led: "GREEN", c: 75, r: 38, g: 29, b: 24, ratio: 1.58 },
+            { id: 12, time: "733s", led: "WHITE", c: 75, r: 38, g: 29, b: 24, ratio: 1.58 },
+            { id: 13, time: "735s", led: "OFF",   c: 75, r: 38, g: 29, b: 24, ratio: 1.58 }
+        ];
+
+        function loadCalibratedGraphData() {
+            chartLabels.length = 0;
+            chartDataRed.length = 0;
+            chartDataGreen.length = 0;
+            chartDataBlue.length = 0;
+            chartDataClear.length = 0;
+            chartDataRatio.length = 0;
+
+            CALIBRATED_RUNS.forEach(pt => {
+                chartLabels.push(`#${pt.id} ${pt.led} (${pt.time})`);
+                chartDataRed.push(pt.r);
+                chartDataGreen.push(pt.g);
+                chartDataBlue.push(pt.b);
+                chartDataClear.push(pt.c);
+                chartDataRatio.push(pt.ratio);
+            });
+            if (sensorChart) sensorChart.update();
+        }
 
         // 1. Initialize Chart.js
         function initChart() {
@@ -530,9 +678,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                             borderColor: '#ef4444',
                             backgroundColor: 'rgba(239, 68, 68, 0.1)',
                             borderWidth: 2.5,
-                            tension: 0.35,
-                            pointRadius: 3,
-                            pointHoverRadius: 6,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 7,
+                            yAxisID: 'y',
                             fill: false
                         },
                         {
@@ -541,9 +690,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                             borderColor: '#22c55e',
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             borderWidth: 2.5,
-                            tension: 0.35,
-                            pointRadius: 3,
-                            pointHoverRadius: 6,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 7,
+                            yAxisID: 'y',
                             fill: false
                         },
                         {
@@ -552,20 +702,34 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                             borderColor: '#3b82f6',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
                             borderWidth: 2.5,
-                            tension: 0.35,
-                            pointRadius: 3,
-                            pointHoverRadius: 6,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 7,
+                            yAxisID: 'y',
                             fill: false
                         },
                         {
-                            label: 'Clear (Total)',
+                            label: 'Clear (Ambient)',
                             data: chartDataClear,
                             borderColor: '#94a3b8',
                             backgroundColor: 'transparent',
                             borderWidth: 1.5,
                             borderDash: [5, 5],
-                            tension: 0.35,
-                            pointRadius: 2,
+                            tension: 0.3,
+                            pointRadius: 3,
+                            yAxisID: 'y',
+                            fill: false
+                        },
+                        {
+                            label: 'R/B Ratio (Normal <= 1.65)',
+                            data: chartDataRatio,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            yAxisID: 'y1',
                             fill: false
                         }
                     ]
@@ -594,11 +758,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     scales: {
                         x: {
                             grid: { display: false },
-                            ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, maxRotation: 0 }
+                            ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, maxRotation: 45 }
                         },
                         y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
                             beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: 'Sensor Counts (ADC)', font: { size: 11, weight: 600 } },
                             grid: { color: '#f1f5f9' },
+                            ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 1.0,
+                            max: 3.0,
+                            title: { display: true, text: 'R/B Optical Ratio', font: { size: 11, weight: 600 } },
+                            grid: { drawOnChartArea: false },
                             ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } }
                         }
                     }
@@ -703,13 +882,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             // If this is a new reading, append to chart & refresh history
             if (reading.id !== lastLoggedId) {
                 lastLoggedId = reading.id;
-                appendPointToChart(timeStr || new Date().toLocaleTimeString(), red, green, blue, clear);
+                appendPointToChart(timeStr || new Date().toLocaleTimeString(), red, green, blue, clear, ratioRB);
                 loadHistoryTable();
             }
         }
 
         // 4. Append Point to Chart.js
-        function appendPointToChart(label, r, g, b, c) {
+        function appendPointToChart(label, r, g, b, c, ratio) {
             if (!sensorChart) return;
 
             if (chartLabels.length >= MAX_CHART_POINTS) {
@@ -718,13 +897,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 chartDataGreen.shift();
                 chartDataBlue.shift();
                 chartDataClear.shift();
+                chartDataRatio.shift();
             }
+
+            const calcRatio = ratio !== undefined ? Number(ratio) : (b > 0 ? Number((r / b).toFixed(2)) : 0);
 
             chartLabels.push(label);
             chartDataRed.push(r);
             chartDataGreen.push(g);
             chartDataBlue.push(b);
             chartDataClear.push(c);
+            chartDataRatio.push(calcRatio);
 
             sensorChart.update();
         }
@@ -816,6 +999,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         // 8. Lifecycle Bootstrap
         window.addEventListener('DOMContentLoaded', () => {
             initChart();
+        loadCalibratedGraphData();
             fetchLatestData(true);
             loadHistoryTable();
 
