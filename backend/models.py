@@ -50,6 +50,14 @@ class Screening(db.Model):
     recommendation = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
+    # Hardware Illumination & Raw Sensor Telemetry Fields
+    illumination_mode = db.Column(db.String(20), nullable=True, default='OFF')  # 'OFF', 'BLUE', 'GREEN', 'WHITE'
+    timestamp_ms = db.Column(db.BigInteger, nullable=True, default=0)           # Hardware elapsed time in ms
+    reading_1 = db.Column(db.Float, nullable=True)                              # Raw Clear Count
+    reading_2 = db.Column(db.Float, nullable=True)                              # Raw Red Count
+    reading_3 = db.Column(db.Float, nullable=True)                              # Raw Green Count
+    reading_4 = db.Column(db.Float, nullable=True)                              # Raw Blue Count
+
     def to_dict(self):
         channels_dict = {
             'violet': round(self.ch_violet, 2) if self.ch_violet is not None else None,
@@ -77,6 +85,12 @@ class Screening(db.Model):
             'reading': self.sensor_reading if self.sensor_reading is not None else 0,
             'sensor_value': self.sensor_reading if self.sensor_reading is not None else 0,
             'clear': clear_val,
+            'illumination_mode': self.illumination_mode or 'OFF',
+            'timestamp_ms': self.timestamp_ms or 0,
+            'reading_1': self.reading_1 if self.reading_1 is not None else clear_val,
+            'reading_2': self.reading_2 if self.reading_2 is not None else r_val,
+            'reading_3': self.reading_3 if self.reading_3 is not None else g_val,
+            'reading_4': self.reading_4 if self.reading_4 is not None else b_val,
             'ratio_rb': ratio_rb,
             'yellow_index': yellow_idx,
             'channels': channels_dict,

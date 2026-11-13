@@ -49,6 +49,18 @@ export const screeningAPI = {
   },
 
 
+  // Dedicated Hardware Telemetry Endpoint: POST /api/sensor/readings
+  sendSensorReadings: async (payload) => {
+    const response = await api.post('/sensor/readings', payload);
+    return response.data;
+  },
+
+  // Real-Time Hardware Stream: GET /api/latest
+  getLatest: async () => {
+    const response = await api.get('/latest');
+    return response.data;
+  },
+
   // GET /history or /api/history
   getHistory: async () => {
     const response = await api.get('/history');

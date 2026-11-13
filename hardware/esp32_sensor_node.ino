@@ -109,11 +109,16 @@ bool oledDetected = false;
 bool sensorDetected = false;
 
 // ============================================================================
-// WI-FI & WEB SERVER CONFIGURATION
+// WI-FI & FLASK BACKEND CONFIGURATION
 // ============================================================================
-// Replace with your local Wi-Fi router or mobile hotspot credentials:
-const char* ssid     = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+// Configurable placeholders as specified:
+//   const char* ssid = "YOUR_WIFI_NAME";
+//   const char* password = "YOUR_WIFI_PASSWORD";
+//   const char* backendUrl = "http://YOUR_COMPUTER_IP:5000/api/sensor/readings";
+// (Ensure NO SPACES inside the URL, and do not use localhost or 127.0.0.1)
+const char* ssid     = "HKV";
+const char* password = "varman5118";
+const char* backendUrl = "http://10.234.224.98:5000/api/sensor/readings";
 
 // Fallback SoftAP credentials if router Wi-Fi is unavailable
 const char* ap_ssid  = "Jaundice-Screener-AP";
@@ -122,17 +127,23 @@ const char* ap_pass  = "12345678";
 // Embedded Web Server on Port 80
 WebServer server(80);
 
-// Real-Time Automatic Background Streaming Configuration
-// Set to true to automatically stream sensor readings to the Flask website every 1.5s
+// Automatic Background Hardware Telemetry Streaming
 const bool ENABLE_BACKEND_UPLOAD = true;
-const bool ENABLE_CONTINUOUS_STREAM = true;
-const unsigned long STREAM_INTERVAL_MS = 1500; // Continuous stream every 1.5 seconds
-unsigned long lastStreamTime = 0;
 
-// IMPORTANT: Replace with your development PC's LAN IP address or Cloud Hosted URL
-// Local PC: http://<YOUR_PC_IP>:5000/api/predict (e.g. http://10.244.64.98:5000/api/predict)
-// Cloud URL: https://<YOUR_APP_NAME>.onrender.com/api/predict
-const char* backendUrl = "http://10.244.64.98:5000/api/predict";
+// Illumination Sequence State Machine: OFF -> BLUE -> GREEN -> WHITE -> Pause
+enum IllumMode {
+  MODE_OFF,
+  MODE_BLUE,
+  MODE_GREEN,
+  MODE_WHITE,
+  MODE_PAUSE
+};
+
+IllumMode currentIllumMode = MODE_OFF;
+unsigned long lastStepTime = 0;
+const unsigned long STEP_DURATION_MS  = 1033; // 1033 ms per illumination step
+const unsigned long PAUSE_DURATION_MS = 2062; // 2062 ms pause between cycles
+unsigned long lastWiFiReconnectCheck  = 0;
 
 // ============================================================================
 // OPTICAL READING DATA STRUCTURE
@@ -379,6 +390,46 @@ void oledShowScanning() {
   display.println(F("Hold sensor steady"));
   display.drawRect(0, 56, 128, 6, SSD1306_WHITE);
   display.fillRect(2, 58, 64, 2, SSD1306_WHITE);
+  display.display();
+}
+
+void oledShowModeResults(const char* modeStr, uint16_t c, uint16_t r, uint16_t g, uint16_t b, float ratioRB, float yellowIdx) {
+  if (!oledDetected) return;
+  display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.printf(" MODE: %-5s | %-7s ", modeStr, (WiFi.status() == WL_CONNECTED) ? "ONLINE" : "NO-WIFI");
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setCursor(0, 11);
+  if (WiFi.status() == WL_CONNECTED) {
+    display.printf("IP: %s
+", WiFi.localIP().toString().c_str());
+  } else {
+    display.println(F("IP: Disconnected"));
+  }
+
+  display.setCursor(0, 22);
+  display.printf("C (R1):%4u  R (R2):%4u
+", c, r);
+  display.setCursor(0, 32);
+  display.printf("G (R3):%4u  B (R4):%4u
+", g, b);
+
+  display.setCursor(0, 44);
+  display.printf("R/B: %4.2f  Y-Idx: %4.2f
+", ratioRB, yellowIdx);
+
+  display.setCursor(0, 56);
+  if (ratioRB <= 1.65f) {
+    display.print(F("Status: Normal (Low)"));
+  } else if (ratioRB <= 2.10f) {
+    display.print(F("Status: Mild Risk"));
+  } else {
+    display.print(F("Status: High Risk"));
+  }
   display.display();
 }
 
@@ -828,7 +879,7 @@ void handleNotFound() {
 // ============================================================================
 // OPTIONAL FORWARDING TO FLASK REST BACKEND
 // ============================================================================
-void sendPayloadToFlaskBackend(const ColorReading &r) {
+void sendPayloadToFlaskBackend(const char* illuminationMode, uint16_t c, uint16_t r, uint16_t g, uint16_t b, unsigned long timestampMs) {
   if (!ENABLE_BACKEND_UPLOAD || WiFi.status() != WL_CONNECTED) return;
 
   HTTPClient http;
@@ -840,38 +891,45 @@ void sendPayloadToFlaskBackend(const ColorReading &r) {
     StaticJsonDocument<512> doc;
   #endif
 
-  doc["device_id"]   = DEVICE_ID;
-  doc["sensor_type"] = "GY-9960";
-  doc["name"]        = BOARD_NAME " Subject";
-  doc["red"]         = r.red;
-  doc["green"]       = r.green;
-  doc["blue"]        = r.blue;
-  doc["clear"]       = r.clear;
-  doc["ratio_rb"]    = r.ratioRB;
-  doc["yellow_index"]= r.yellowIndex;
-  doc["sensor_value"]= r.clear;
+  doc["device_id"]         = DEVICE_ID;
+  doc["sensor_type"]       = "GY-9960";
+  doc["timestamp_ms"]      = timestampMs;
+  doc["illumination_mode"] = illuminationMode;
+  doc["reading_1"]         = c; // Clear Channel count (Reg 0x94-0x95)
+  doc["reading_2"]         = r; // Red Channel count   (Reg 0x96-0x97)
+  doc["reading_3"]         = g; // Green Channel count (Reg 0x98-0x99)
+  doc["reading_4"]         = b; // Blue Channel count  (Reg 0x9A-0x9B)
+  doc["clear"]             = c;
+  doc["red"]               = r;
+  doc["green"]             = g;
+  doc["blue"]              = b;
 
   String payload;
   serializeJson(doc, payload);
 
   if (isHttps) {
     WiFiClientSecure secureClient;
-    secureClient.setInsecure(); // Allows connecting to hosted HTTPS endpoints without custom certs
-    if (!http.begin(secureClient, backendUrl)) return;
-    http.setTimeout(5000);
-    http.addHeader("Content-Type", "application/json");
-    int httpCode = http.POST(payload);
-    Serial.printf("[HTTP BACKEND (HTTPS)] Response Code: %d\n", httpCode);
-    http.end();
+    secureClient.setInsecure();
+    if (http.begin(secureClient, backendUrl)) {
+      http.setTimeout(1200); // Fast non-blocking timeout
+      http.addHeader("Content-Type", "application/json");
+      http.POST(payload);
+      http.end();
+    }
   } else {
     WiFiClient client;
-    if (!http.begin(client, backendUrl)) return;
-    http.setTimeout(4000);
-    http.addHeader("Content-Type", "application/json");
-    int httpCode = http.POST(payload);
-    Serial.printf("[HTTP BACKEND (HTTP)] Response Code: %d\n", httpCode);
-    http.end();
+    if (http.begin(client, backendUrl)) {
+      http.setTimeout(1200); // Fast non-blocking timeout
+      http.addHeader("Content-Type", "application/json");
+      http.POST(payload);
+      http.end();
+    }
   }
+}
+
+// Legacy overload for button scan compatibility
+void sendPayloadToFlaskBackend(const ColorReading &r) {
+  sendPayloadToFlaskBackend("MANUAL", r.clear, r.red, r.green, r.blue, r.timestampMs);
 }
 
 // ============================================================================
@@ -919,7 +977,10 @@ void setupWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println();
     Serial.println(F("[WIFI SUCCESS] Connected to local network!"));
-    Serial.printf("  - NodeMCU IP Address : %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("  - Board IP Address   : %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("  - Gateway IP         : %s\n", WiFi.gatewayIP().toString().c_str());
+    Serial.printf("  - Subnet Mask        : %s\n", WiFi.subnetMask().toString().c_str());
+    Serial.printf("  - Target Backend     : %s\n", backendUrl);
     Serial.printf("  - Web Dashboard Port : 80 (http://%s/)\n", WiFi.localIP().toString().c_str());
     ledBlink(1, 400, 100);
   } else {
@@ -1037,23 +1098,76 @@ void loop() {
     yield();
   #endif
 
-  // Automatic real-time telemetry streaming to Flask backend (every 1.5 seconds)
-  if (ENABLE_CONTINUOUS_STREAM && ENABLE_BACKEND_UPLOAD && (WiFi.status() == WL_CONNECTED)) {
-    unsigned long now = millis();
-    if (now - lastStreamTime >= STREAM_INTERVAL_MS) {
-      lastStreamTime = now;
-      ColorReading r;
-      if (acquireSensorData(r)) {
-        lastReading = r;
-        oledShowResults(r);
-        sendPayloadToFlaskBackend(r);
+  // Automatic non-blocking Wi-Fi reconnection check every 5 seconds
+  if (WiFi.status() != WL_CONNECTED && millis() - lastWiFiReconnectCheck > 5000) {
+    lastWiFiReconnectCheck = millis();
+    WiFi.reconnect();
+  }
+
+  unsigned long now = millis();
+  unsigned long interval = (currentIllumMode == MODE_PAUSE) ? PAUSE_DURATION_MS : STEP_DURATION_MS;
+
+  // Timed Illumination Sequence Machine: OFF (1033ms) -> BLUE (1033ms) -> GREEN (1033ms) -> WHITE (1033ms) -> PAUSE (2062ms)
+  if (now - lastStepTime >= interval) {
+    lastStepTime = now;
+
+    const char* modeStr = "OFF";
+    switch (currentIllumMode) {
+      case MODE_OFF:
+        modeStr = "OFF";
+        currentIllumMode = MODE_BLUE;
+        break;
+      case MODE_BLUE:
+        modeStr = "BLUE";
+        currentIllumMode = MODE_GREEN;
+        break;
+      case MODE_GREEN:
+        modeStr = "GREEN";
+        currentIllumMode = MODE_WHITE;
+        break;
+      case MODE_WHITE:
+        modeStr = "WHITE";
+        currentIllumMode = MODE_PAUSE;
+        break;
+      case MODE_PAUSE:
+        modeStr = "OFF";
+        currentIllumMode = MODE_BLUE;
+        break;
+    }
+
+    // Read real GY-9960 / APDS-9960 optical counts directly from registers:
+    // c = Clear Channel (Reg 0x94-0x95) -> Reading 1
+    // r = Red Channel   (Reg 0x96-0x97) -> Reading 2
+    // g = Green Channel (Reg 0x98-0x99) -> Reading 3
+    // b = Blue Channel  (Reg 0x9A-0x9B) -> Reading 4
+    uint16_t r = 0, g = 0, b = 0, c = 0;
+    if (readGY9960Color(r, g, b, c)) {
+      lastReading.clear = c;
+      lastReading.red   = r;
+      lastReading.green = g;
+      lastReading.blue  = b;
+      float blueDiv = (b > 0) ? (float)b : 1.0f;
+      lastReading.ratioRB = (float)r / blueDiv;
+      lastReading.yellowIndex = ((float)r + (float)g) / (2.0f * blueDiv);
+      lastReading.timestampMs = now;
+      lastReading.valid = true;
+
+      // 1. Output exact CSV format to Serial Monitor:
+      // <timestamp_ms>,<illumination_mode>,<reading_1>,<reading_2>,<reading_3>,<reading_4>
+      Serial.printf("%lu,%s,%u,%u,%u,%u\n", now, modeStr, c, r, g, b);
+
+      // 2. Update OLED Display with illumination mode
+      oledShowModeResults(modeStr, c, r, g, b, lastReading.ratioRB, lastReading.yellowIndex);
+
+      // 3. Fast non-blocking HTTP upload to Flask backend
+      if (ENABLE_BACKEND_UPLOAD) {
+        sendPayloadToFlaskBackend(modeStr, c, r, g, b, now);
       }
     }
   }
 
   // Check physical push button (Active LOW with INPUT_PULLUP)
   if (digitalRead(PIN_BUTTON) == LOW) {
-    unsigned long now = millis();
     if (now - lastBtnPressTime > DEBOUNCE_DELAY_MS) {
       lastBtnPressTime = now;
       triggerPhysicalButtonScan();

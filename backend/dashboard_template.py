@@ -194,12 +194,19 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </span>
                 <div>
                     <span class="fw-bold fs-6 text-dark d-block lh-sm">Neonatal Jaundice Real-Time Optical Monitor</span>
-                    <span class="text-muted extra-small" style="font-size: 0.72rem;">NodeMCU ESP8266 &bull; GY-9960 Optical Sensor &bull; SSD1306 OLED</span>
+                    <span class="text-muted extra-small" style="font-size: 0.72rem;">ESP32 & NodeMCU &bull; GY-9960 Optical Sensor (I2C 0x39) &bull; SSD1306 OLED</span>
                 </div>
             </a>
 
             <!-- Right Controls: Status & Monitoring Toggle -->
             <div class="d-flex align-items-center gap-3 ms-auto mt-2 mt-lg-0">
+                <!-- Active Illumination Mode Badge -->
+                <div id="illuminationBadgeContainer">
+                    <span id="illuminationBadge" class="badge rounded-pill px-3 py-2 fw-semibold fs-6 border" style="background:#f1f5f9; color:#475569;">
+                        <i class="bi bi-lightbulb-fill me-1"></i> Illumination: <strong id="dispIlluminationMode">OFF</strong>
+                    </span>
+                </div>
+
                 <!-- Connection Status Badge -->
                 <div id="connectionStatusContainer">
                     <span id="connectionBadge" class="badge-status-offline">
@@ -272,60 +279,60 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
         <!-- 4 REAL-TIME SENSOR READING CARDS (CLEAR, RED, GREEN, BLUE) -->
         <div class="row g-3 mb-4">
-            <!-- 1. CLEAR CHANNEL CARD -->
+            <!-- 1. CLEAR CHANNEL CARD (Reading 1) -->
             <div class="col-sm-6 col-xl-3">
                 <div class="medical-card p-3 h-100 border-start border-4 border-secondary">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="extra-small fw-bold text-muted text-uppercase">Clear (Broad Spectrum)</span>
+                        <span class="extra-small fw-bold text-muted text-uppercase">Reading 1 &bull; Clear Channel</span>
                         <i class="bi bi-brightness-high fs-5 text-secondary"></i>
                     </div>
                     <div class="sensor-card-val text-dark" id="dispClear">--</div>
-                    <div class="text-muted extra-small" style="font-size: 0.75rem;">Total ambient & reflected illuminance</div>
+                    <div class="text-muted extra-small" style="font-size: 0.75rem;">Clear ADC counts (Total illuminance)</div>
                     <div class="sensor-progress">
                         <div id="barClear" class="progress-bar bg-secondary" style="width: 0%; height: 100%;"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. RED CHANNEL CARD -->
+            <!-- 2. RED CHANNEL CARD (Reading 2) -->
             <div class="col-sm-6 col-xl-3">
                 <div class="medical-card p-3 h-100 border-start border-4 border-danger">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="extra-small fw-bold text-danger text-uppercase">Red Channel (650 nm)</span>
+                        <span class="extra-small fw-bold text-danger text-uppercase">Reading 2 &bull; Red Channel</span>
                         <i class="bi bi-circle-fill fs-5 text-danger"></i>
                     </div>
                     <div class="sensor-card-val text-danger" id="dispRed">--</div>
-                    <div class="text-muted extra-small" style="font-size: 0.75rem;">Cutaneous baseline tissue reflectance</div>
+                    <div class="text-muted extra-small" style="font-size: 0.75rem;">Red ADC counts (620&ndash;700nm reflectance)</div>
                     <div class="sensor-progress">
                         <div id="barRed" class="progress-bar bg-danger" style="width: 0%; height: 100%;"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- 3. GREEN CHANNEL CARD -->
+            <!-- 3. GREEN CHANNEL CARD (Reading 3) -->
             <div class="col-sm-6 col-xl-3">
                 <div class="medical-card p-3 h-100 border-start border-4 border-success">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="extra-small fw-bold text-success text-uppercase">Green Channel (550 nm)</span>
+                        <span class="extra-small fw-bold text-success text-uppercase">Reading 3 &bull; Green Channel</span>
                         <i class="bi bi-circle-fill fs-5 text-success"></i>
                     </div>
                     <div class="sensor-card-val text-success" id="dispGreen">--</div>
-                    <div class="text-muted extra-small" style="font-size: 0.75rem;">Hemoglobin & melanin reference baseline</div>
+                    <div class="text-muted extra-small" style="font-size: 0.75rem;">Green ADC counts (500&ndash;560nm reflectance)</div>
                     <div class="sensor-progress">
                         <div id="barGreen" class="progress-bar bg-success" style="width: 0%; height: 100%;"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- 4. BLUE CHANNEL CARD -->
+            <!-- 4. BLUE CHANNEL CARD (Reading 4) -->
             <div class="col-sm-6 col-xl-3">
                 <div class="medical-card p-3 h-100 border-start border-4 border-primary">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="extra-small fw-bold text-primary text-uppercase">Blue Channel (450 nm)</span>
+                        <span class="extra-small fw-bold text-primary text-uppercase">Reading 4 &bull; Blue Channel</span>
                         <i class="bi bi-circle-fill fs-5 text-primary"></i>
                     </div>
                     <div class="sensor-card-val text-primary" id="dispBlue">--</div>
-                    <div class="text-muted extra-small" style="font-size: 0.75rem;"><strong>Bilirubin optical absorption peak</strong></div>
+                    <div class="text-muted extra-small" style="font-size: 0.75rem;"><strong>Blue ADC counts (440&ndash;490nm bilirubin peak)</strong></div>
                     <div class="sensor-progress">
                         <div id="barBlue" class="progress-bar bg-primary" style="width: 0%; height: 100%;"></div>
                     </div>
@@ -832,11 +839,37 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     `Last reading: <strong>${secAgo}s ago</strong> (${timeStr})`;
             }
 
+            // Illumination Mode Badge
+            const illumMode = (reading.illumination_mode || 'OFF').toUpperCase();
+            const illumBadge = document.getElementById('illuminationBadge');
+            const dispMode = document.getElementById('dispIlluminationMode');
+            if (dispMode) dispMode.innerText = illumMode;
+            if (illumBadge) {
+                if (illumMode === 'BLUE') {
+                    illumBadge.style.backgroundColor = '#dbeafe';
+                    illumBadge.style.color = '#1d4ed8';
+                    illumBadge.style.borderColor = '#93c5fd';
+                } else if (illumMode === 'GREEN') {
+                    illumBadge.style.backgroundColor = '#dcfce7';
+                    illumBadge.style.color = '#15803d';
+                    illumBadge.style.borderColor = '#86efac';
+                } else if (illumMode === 'WHITE') {
+                    illumBadge.style.backgroundColor = '#fef3c7';
+                    illumBadge.style.color = '#b45309';
+                    illumBadge.style.borderColor = '#fde68a';
+                } else {
+                    // OFF
+                    illumBadge.style.backgroundColor = '#f1f5f9';
+                    illumBadge.style.color = '#475569';
+                    illumBadge.style.borderColor = '#cbd5e1';
+                }
+            }
+
             // Channel Values
-            const red = reading.red ?? 0;
-            const green = reading.green ?? 0;
-            const blue = reading.blue ?? 0;
-            const clear = reading.clear ?? reading.sensor_reading ?? (red + green + blue);
+            const red = reading.reading_2 ?? reading.red ?? 0;
+            const green = reading.reading_3 ?? reading.green ?? 0;
+            const blue = reading.reading_4 ?? reading.blue ?? 0;
+            const clear = reading.reading_1 ?? reading.clear ?? reading.sensor_reading ?? (red + green + blue);
 
             document.getElementById('dispClear').innerText = clear.toLocaleString();
             document.getElementById('dispRed').innerText = red.toLocaleString();
@@ -882,7 +915,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             // If this is a new reading, append to chart & refresh history
             if (reading.id !== lastLoggedId) {
                 lastLoggedId = reading.id;
-                appendPointToChart(timeStr || new Date().toLocaleTimeString(), red, green, blue, clear, ratioRB);
+                appendPointToChart(`${illumMode} (${timeStr || new Date().toLocaleTimeString()})`, red, green, blue, clear, ratioRB);
                 loadHistoryTable();
             }
         }

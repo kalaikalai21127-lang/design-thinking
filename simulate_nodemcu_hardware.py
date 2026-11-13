@@ -1,10 +1,18 @@
 """
 ================================================================================
-NodeMCU ESP8266 & GY-9960 Hardware Node Simulator
+ESP32 & NodeMCU Optical Sensor Node Simulator (GY-9960 / APDS-9960)
 ================================================================================
-This script simulates physical NodeMCU ESP8266 hardware reading optical counts
-from the GY-9960 / APDS-9960 colour sensor and streaming payloads to the Flask
-backend API (Localhost, LAN IP, or Cloud Hosted URL like Render/Railway).
+Simulates physical ESP32 optical sensor hardware running the illumination
+sequence (OFF -> BLUE -> GREEN -> WHITE) and streaming real sensor packets to:
+POST /api/sensor/readings
+
+Output matches Serial Monitor CSV format:
+<timestamp_ms>,<illumination_mode>,<reading_1>,<reading_2>,<reading_3>,<reading_4>
+Where:
+- reading_1 = Clear counts (c, Registers 0x94-0x95)
+- reading_2 = Red counts   (r, Registers 0x96-0x97)
+- reading_3 = Green counts (g, Registers 0x98-0x99)
+- reading_4 = Blue counts  (b, Registers 0x9A-0x9B)
 ================================================================================
 """
 
@@ -16,91 +24,81 @@ import argparse
 import urllib.request
 import urllib.error
 
-def simulate_optical_scan(scan_num, backend_url):
-    # Simulated tissue optical reflection counts
-    # Healthy tissue vs Jaundiced tissue (where blue light is absorbed by bilirubin)
-    is_jaundiced = (scan_num % 2 == 0)
-    
-    if is_jaundiced:
-        # High blue absorption -> Lower blue counts -> Higher R/B ratio
-        red = random.randint(480, 560)
-        green = random.randint(390, 470)
-        blue = random.randint(110, 180)  # Attenuated by bilirubin
-        clear = red + green + blue + random.randint(50, 100)
-    else:
-        # Normal optical reflection
-        red = random.randint(350, 420)
-        green = random.randint(340, 410)
-        blue = random.randint(290, 360)
-        clear = red + green + blue + random.randint(50, 100)
+ILLUMINATION_MODES = ["OFF", "BLUE", "GREEN", "WHITE"]
 
-    ratio_rb = round(red / max(1, blue), 2)
-    yellow_index = round((red + green) / (2.0 * max(1, blue)), 2)
+def simulate_step(step_idx, mode, backend_url, start_time_ms):
+    now_ms = int(time.time() * 1000) - start_time_ms + 260300
 
+    # Optical reflectance values matching calibrated readings:
+    # Baseline: Clear: 76, Red: 38, Green: 30, Blue: 25
+    clear = 76 + random.randint(-1, 2)
+    red   = 38 + random.randint(-1, 1)
+    green = 30 + random.randint(-1, 1)
+    blue  = 25 + random.randint(-1, 1)
+
+    # 1. Serial Monitor CSV output (Exact 6 fields)
+    csv_line = f"{now_ms},{mode},{clear},{red},{green},{blue}"
+    print(f"[SERIAL] {csv_line}")
+
+    # 2. JSON Payload for POST /api/sensor/readings
     payload = {
-        "device_id": "NodeMCU_ESP8266_GY9960_Sim",
+        "device_id": "ESP32_OPTICAL_01",
         "sensor_type": "GY-9960",
-        "name": f"NodeMCU Subject #{scan_num}",
-        "red": red,
-        "green": green,
-        "blue": blue,
-        "clear": clear,
-        "ratio_rb": ratio_rb,
-        "yellow_index": yellow_index,
-        "age": 0,
-        "gender": "Hardware Node"
+        "timestamp_ms": now_ms,
+        "illumination_mode": mode,
+        "reading_1": clear,
+        "reading_2": red,
+        "reading_3": green,
+        "reading_4": blue
     }
-
-    print(f"\n=======================================================")
-    print(f"[SIMULATOR] SCAN #{scan_num} Triggered (Simulating Button D6 / Scan)")
-    print(f"=======================================================")
-    print(f"  Sensor Model     : GY-9960 (APDS-9960 compatible, I2C 0x39)")
-    print(f"  OLED Display     : SSD1306 (128x64, I2C 0x3C)")
-    print(f"  Red Channel      : {red} counts (620-700nm)")
-    print(f"  Green Channel    : {green} counts (500-560nm)")
-    print(f"  Blue Channel     : {blue} counts (440-490nm) <-- Bilirubin Absorption")
-    print(f"  Clear Channel    : {clear} counts (Ambient / Total)")
-    print(f"  R/B Optical Ratio: {ratio_rb}")
-    print(f"  Yellow-Blue Idx  : {yellow_index}")
-    print(f"[HTTP] Transmitting payload to Backend: {backend_url}")
 
     try:
         req_data = json.dumps(payload).encode('utf-8')
         req = urllib.request.Request(
             backend_url,
             data=req_data,
-            headers={'Content-Type': 'application/json', 'User-Agent': 'ESP8266-Simulator/1.0'}
+            headers={'Content-Type': 'application/json', 'User-Agent': 'ESP32-SensorNode/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=8) as response:
+        with urllib.request.urlopen(req, timeout=3) as response:
             status_code = response.getcode()
             resp_body = response.read().decode('utf-8')
             data = json.loads(resp_body)
-            print(f"[HTTP SUCCESS {status_code}] Record ID #{data.get('id')}")
-            print(f"  Status          : {data.get('status')}")
-            print(f"  Recommendation  : {data.get('recommendation')}")
+            print(f"  -> [HTTP {status_code}] Mode: {mode} | Status: {data.get('clinical_status')} | R/B: {data.get('ratio_rb')} | ID: #{data.get('id')}")
     except Exception as e:
-        print(f"[HTTP ERROR] Failed to connect to {backend_url}: {e}")
-        print("  Ensure your backend is running and the URL is reachable!")
+        print(f"  -> [HTTP ERROR] Could not reach {backend_url}: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simulate NodeMCU sensor readings to backend.")
-    parser.add_argument("--url", default="http://127.0.0.1:5000/api/predict", help="Backend API endpoint URL (default: http://127.0.0.1:5000/api/predict)")
-    parser.add_argument("--count", type=int, default=3, help="Number of scans to simulate (default: 3, 0 for continuous)")
-    parser.add_argument("--interval", type=float, default=1.5, help="Interval in seconds between scans (default: 1.5)")
+    parser = argparse.ArgumentParser(description="Simulate ESP32 GY-9960 sensor node sequence.")
+    parser.add_argument("--url", default="http://127.0.0.1:5000/api/sensor/readings", help="Target API endpoint URL (default: http://127.0.0.1:5000/api/sensor/readings)")
+    parser.add_argument("--cycles", type=int, default=3, help="Number of full cycles to run (0 for infinite, default: 3)")
     args = parser.parse_args()
 
-    print("[INIT] Starting NodeMCU ESP8266 & GY-9960 Sensor Node Simulation...")
-    print(f"[INFO] Target Backend URL: {args.url}")
-    print(f"[INFO] Scan count: {'Continuous' if args.count == 0 else args.count}, Interval: {args.interval}s")
+    print("=================================================================")
+    print(" ESP32 Optical Sensor Node (GY-9960) Hardware Simulation")
+    print("=================================================================")
+    print(f" Target Endpoint : {args.url}")
+    print(f" Sequence        : OFF (1033ms) -> BLUE (1033ms) -> GREEN (1033ms) -> WHITE (1033ms) -> Pause (2062ms)")
+    print(f" Cycles          : {'Continuous' if args.cycles == 0 else args.cycles}")
+    print("=================================================================\n")
 
-    i = 1
+    start_time_ms = int(time.time() * 1000)
+    cycle = 1
+    step_num = 1
+
     try:
         while True:
-            simulate_optical_scan(i, args.url)
-            if args.count > 0 and i >= args.count:
+            print(f"--- [CYCLE #{cycle}] Starting Illumination Sequence ---")
+            for mode in ILLUMINATION_MODES:
+                simulate_step(step_num, mode, args.url, start_time_ms)
+                step_num += 1
+                time.sleep(1.033)
+
+            print(f"--- [CYCLE #{cycle} COMPLETE] Pausing 2.06s before next cycle ---\n")
+            if args.cycles > 0 and cycle >= args.cycles:
                 break
-            i += 1
-            time.sleep(args.interval)
-        print(f"\n[SUCCESS] Simulation finished! Access the dashboard to view results.")
+            cycle += 1
+            time.sleep(2.062)
+
+        print("[SUCCESS] Hardware simulation sequence completed successfully.")
     except KeyboardInterrupt:
-        print("\n[STOPPED] Simulation stopped by user.")
+        print("\n[STOPPED] Simulation interrupted by user.")

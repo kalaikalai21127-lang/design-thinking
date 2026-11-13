@@ -39,7 +39,13 @@ def _migrate_database_schema(db_path):
             ("ch_green", "FLOAT DEFAULT NULL"),
             ("ch_yellow", "FLOAT DEFAULT NULL"),
             ("ch_orange", "FLOAT DEFAULT NULL"),
-            ("ch_red", "FLOAT DEFAULT NULL")
+            ("ch_red", "FLOAT DEFAULT NULL"),
+            ("illumination_mode", "VARCHAR(20) DEFAULT 'OFF'"),
+            ("timestamp_ms", "BIGINT DEFAULT 0"),
+            ("reading_1", "FLOAT DEFAULT NULL"),
+            ("reading_2", "FLOAT DEFAULT NULL"),
+            ("reading_3", "FLOAT DEFAULT NULL"),
+            ("reading_4", "FLOAT DEFAULT NULL")
         ]
 
         for col_name, col_def in new_columns:
@@ -192,8 +198,9 @@ def create_app():
                 channels_input = {k: data[k] for k in ['violet', 'blue', 'green', 'yellow', 'orange', 'red']}
 
         # Check for GY-9960 / APDS-9960 RGB channel data
-        is_rgb_sensor = (data.get('sensor_type') in ['GY-9960', 'APDS-9960', 'GY9960', 'APDS9960']) or \
-                         (all(k in data for k in ['red', 'green', 'blue']) and not channels_input)
+        is_rgb_sensor = (data.get('sensor_type') in ['GY-9960', 'APDS-9960', 'GY9960', 'APDS9960', 'ESP32_OPTICAL_01']) or \
+                         (all(k in data for k in ['red', 'green', 'blue']) and not channels_input) or \
+                         (all(k in data for k in ['reading_1', 'reading_2', 'reading_3', 'reading_4']) and not channels_input)
 
         sensor_type = data.get('sensor_type', 'AS7262' if channels_input else ('GY-9960' if is_rgb_sensor else 'Simulation'))
 
@@ -255,22 +262,24 @@ def create_app():
                 return jsonify({'error': f'Failed to record spectral screening: {str(e)}'}), 500
 
         elif is_rgb_sensor:
-            # --- GY-9960 / APDS-9960 RGB COLOR SENSOR PATH (NodeMCU ESP8266) ---
+            # --- GY-9960 / APDS-9960 RGB COLOR SENSOR PATH (NodeMCU ESP8266 & ESP32) ---
             try:
-                ch_red = float(data.get('red', 0))
-                ch_green = float(data.get('green', 0))
-                ch_blue = float(data.get('blue', 0))
+                # Reading 1 = Clear, Reading 2 = Red, Reading 3 = Green, Reading 4 = Blue
+                ch_clear = float(data.get('reading_1', data.get('clear', data.get('sensor_value', 0))))
+                ch_red = float(data.get('reading_2', data.get('red', 0)))
+                ch_green = float(data.get('reading_3', data.get('green', 0)))
+                ch_blue = float(data.get('reading_4', data.get('blue', 0)))
                 ch_violet = float(data.get('violet', ch_blue * 0.85)) # Optical absorption slope
                 ch_yellow = float(data.get('yellow', (ch_red + ch_green) / 2.0))
                 ch_orange = float(data.get('orange', (ch_red * 2.0 + ch_green) / 3.0))
+                illum_mode = str(data.get('illumination_mode', 'OFF')).strip().upper()
+                if illum_mode not in ['OFF', 'BLUE', 'GREEN', 'WHITE']:
+                    illum_mode = 'OFF'
+                ts_ms = int(data.get('timestamp_ms', 0))
             except (ValueError, TypeError):
-                return jsonify({'error': 'Invalid RGB color channels. Values must be numeric numbers.'}), 400
+                return jsonify({'error': 'Invalid optical sensor channels. Values must be numeric numbers.'}), 400
 
-            compat_sensor_value = data.get('clear', data.get('sensor_value', 0))
-            try:
-                compat_sensor_value = int(compat_sensor_value)
-            except (ValueError, TypeError):
-                compat_sensor_value = 0
+            compat_sensor_value = int(ch_clear)
 
             status, confidence, recommendation, ratio_rb, yellow_index = evaluate_rgb_optical_reading(
                 ch_red, ch_green, ch_blue, compat_sensor_value
@@ -291,6 +300,12 @@ def create_app():
                     ch_yellow=ch_yellow,
                     ch_orange=ch_orange,
                     ch_red=ch_red,
+                    illumination_mode=illum_mode,
+                    timestamp_ms=ts_ms,
+                    reading_1=ch_clear,
+                    reading_2=ch_red,
+                    reading_3=ch_green,
+                    reading_4=ch_blue,
                     status=status,
                     confidence_score=confidence,
                     recommendation=recommendation
@@ -305,6 +320,12 @@ def create_app():
                 res_dict['ratio_rb'] = ratio_rb
                 res_dict['yellow_index'] = yellow_index
                 res_dict['disclaimer'] = 'Evaluated against empirical optical calibration baseline (R:38, G:30, B:25).'
+                
+                # Cache latest hardware telemetry
+                app.config['LATEST_HARDWARE_PACKET'] = {
+                    'received_at': datetime.utcnow(),
+                    'data': res_dict
+                }
                 return jsonify(res_dict), 201
 
             except Exception as e:
@@ -392,10 +413,135 @@ def create_app():
             'recent_screenings': recent_screenings
         }), 200
 
-    # 3b. GET /latest or /api/latest (Real-time Hardware Stream Endpoint)
+    # 3b. POST /sensor/readings or /api/sensor/readings (Dedicated ESP32 Hardware Ingestion)
+    @app.route('/sensor/readings', methods=['POST'])
+    @app.route('/api/sensor/readings', methods=['POST'])
+    def ingest_sensor_readings():
+        data = request.get_json(silent=True) or {}
+
+        device_id = str(data.get('device_id', 'ESP32_OPTICAL_01')).strip() or 'ESP32_OPTICAL_01'
+        sensor_type = str(data.get('sensor_type', 'GY-9960')).strip() or 'GY-9960'
+        
+        try:
+            timestamp_ms = int(data.get('timestamp_ms', 0))
+        except (ValueError, TypeError):
+            timestamp_ms = 0
+
+        illumination_mode = str(data.get('illumination_mode', 'OFF')).strip().upper()
+        if illumination_mode not in ['OFF', 'BLUE', 'GREEN', 'WHITE']:
+            illumination_mode = 'OFF'
+
+        # Extract 4 raw numeric optical readings from GY-9960 APDS-9960 RGBC registers:
+        # reading_1 = Clear counts (c, Reg 0x94-0x95)
+        # reading_2 = Red counts   (r, Reg 0x96-0x97)
+        # reading_3 = Green counts (g, Reg 0x98-0x99)
+        # reading_4 = Blue counts  (b, Reg 0x9A-0x9B)
+        try:
+            reading_1 = float(data.get('reading_1', data.get('clear', data.get('sensor_value', 0))))
+            reading_2 = float(data.get('reading_2', data.get('red', 0)))
+            reading_3 = float(data.get('reading_3', data.get('green', 0)))
+            reading_4 = float(data.get('reading_4', data.get('blue', 0)))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid numeric readings. Values must be numbers.'}), 400
+
+        # Clinical evaluation against calibrated baseline
+        status, confidence, recommendation, ratio_rb, yellow_index = evaluate_rgb_optical_reading(
+            reading_2, reading_3, reading_4, reading_1
+        )
+
+        patient_name = f"{device_id} ({illumination_mode})"
+        try:
+            patient = Patient(name=patient_name, age=0, gender='Hardware Node')
+            db.session.add(patient)
+            db.session.flush()
+
+            screening = Screening(
+                patient_id=patient.id,
+                sensor_type=sensor_type,
+                sensor_reading=int(reading_1),
+                ch_violet=round(reading_4 * 0.85, 2),
+                ch_blue=reading_4,
+                ch_green=reading_3,
+                ch_yellow=round((reading_2 + reading_3) / 2.0, 2),
+                ch_orange=round((reading_2 * 2.0 + reading_3) / 3.0, 2),
+                ch_red=reading_2,
+                illumination_mode=illumination_mode,
+                timestamp_ms=timestamp_ms,
+                reading_1=reading_1,
+                reading_2=reading_2,
+                reading_3=reading_3,
+                reading_4=reading_4,
+                status=status,
+                confidence_score=confidence,
+                recommendation=recommendation
+            )
+            db.session.add(screening)
+            db.session.commit()
+
+            rec_dict = screening.to_dict()
+            rec_dict['patient'] = patient.to_dict()
+            rec_dict['ratio_rb'] = ratio_rb
+            rec_dict['yellow_index'] = yellow_index
+            rec_dict['device_id'] = device_id
+            rec_dict['illumination_mode'] = illumination_mode
+            rec_dict['timestamp_ms'] = timestamp_ms
+            rec_dict['reading_1'] = reading_1
+            rec_dict['reading_2'] = reading_2
+            rec_dict['reading_3'] = reading_3
+            rec_dict['reading_4'] = reading_4
+
+            # Cache latest hardware telemetry for real-time dashboard
+            app.config['LATEST_HARDWARE_PACKET'] = {
+                'received_at': datetime.utcnow(),
+                'data': rec_dict
+            }
+
+            return jsonify({
+                'status': 'success',
+                'id': screening.id,
+                'device_id': device_id,
+                'sensor_type': sensor_type,
+                'timestamp_ms': timestamp_ms,
+                'illumination_mode': illumination_mode,
+                'clinical_status': status,
+                'confidence': confidence,
+                'recommendation': recommendation,
+                'ratio_rb': ratio_rb,
+                'yellow_index': yellow_index,
+                'readings': {
+                    'reading_1': reading_1,
+                    'reading_2': reading_2,
+                    'reading_3': reading_3,
+                    'reading_4': reading_4
+                },
+                'channels': {
+                    'clear': reading_1,
+                    'red': reading_2,
+                    'green': reading_3,
+                    'blue': reading_4
+                }
+            }), 201
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to process hardware reading: {str(e)}'}), 500
+
+    # 3c. GET /latest or /api/latest (Real-time Hardware Stream Endpoint)
     @app.route('/latest', methods=['GET'])
     @app.route('/api/latest', methods=['GET'])
     def get_latest():
+        pkt = app.config.get('LATEST_HARDWARE_PACKET')
+        now = datetime.utcnow()
+        if pkt and 'received_at' in pkt:
+            sec_ago = round((now - pkt['received_at']).total_seconds(), 1)
+            if sec_ago <= 15.0:
+                return jsonify({
+                    'connected': True,
+                    'seconds_since_last_reading': sec_ago,
+                    'latest': pkt['data'],
+                    'message': f"Hardware stream active ({pkt['data'].get('illumination_mode', 'OFF')} mode)"
+                }), 200
+
         latest = Screening.query.order_by(Screening.id.desc()).first()
         if not latest:
             return jsonify({
@@ -405,7 +551,6 @@ def create_app():
                 'message': 'No hardware sensor data received yet.'
             }), 200
 
-        now = datetime.utcnow()
         seconds_ago = (now - latest.timestamp).total_seconds() if latest.timestamp else 999999.0
         # Device is considered active if a reading was logged within the last 15 seconds
         is_connected = (seconds_ago <= 15.0)
